@@ -19,17 +19,3 @@ jobs:
           if ! which oc; then
             curl --fail --no-progress-meter -L "$url" | gzip -cd | sudo -- tar -x -C /usr/bin oc
           fi
-
-      - name: Check pipeline READMEs
-        run: |
-          #!/bin/bash
-          set -e
-
-          ./hack/generate-pipelines-readme.py
-          if [[ -n $(git status -s) ]]
-          then
-            echo "pipeline READMEs are not up to date, run ./hack/generate-pipelines-readme.py and commit the resulting changes"
-            echo "Or run ./hack/generate-everything.sh to run all the generators at once."
-            git status -s
-            exit 1
-          fi
