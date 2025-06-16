@@ -4,18 +4,19 @@ metadata:
   annotations:
     build.appstudio.openshift.io/repo: https://github.com/konflux-ci/konflux-test-tasks?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
-    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/cancel-in-progress: "true"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" && ( "/task/clair-scan/0.1/***".pathChanged() || ".tekton/clair-scan-0-dot-1-push.yaml".pathChanged()
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
+      == "main" && ( "/task/clair-scan/0.2/***".pathChanged() || ".tekton/clair-scan-0-dot-2-pull-request.yaml".pathChanged()
       )
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: konflux-test-tasks
-    appstudio.openshift.io/component: clair-scan-0-dot-1
+    appstudio.openshift.io/component: clair-scan-0-dot-2
     pipelines.appstudio.openshift.io/type: build
-  name: clair-scan-0-dot-1-on-push
+  name: clair-scan-0-dot-2-on-pull-request
   namespace: rhtap-integration-tenant
 spec:
   params:
@@ -24,11 +25,13 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/rhtap-integration-tenant/clair-scan-0-dot-1:{{revision}}
+    value: quay.io/redhat-user-workloads/rhtap-integration-tenant/clair-scan-0-dot-2:on-pr-{{revision}}
+  - name: image-expires-after
+    value: 5d
   - name: dockerfile
     value: Dockerfile
   - name: path-context
-    value: task/clair-scan/0.1
+    value: task/clair-scan/0.2
   pipelineSpec:
     finally:
     - name: show-summary
@@ -317,7 +320,7 @@ spec:
     - name: netrc
       optional: true
   taskRunTemplate:
-    serviceAccountName: build-pipeline-clair-scan-0-dot-1
+    serviceAccountName: build-pipeline-clair-scan-0-dot-2
   workspaces:
   - name: git-auth
     secret:
