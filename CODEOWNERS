@@ -1,0 +1,6 @@
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# renovate groupName=integration
+/task/clair-scan                                @konflux-ci/integration-service-maintainers
+/task/clamav-scan                               @konflux-ci/integration-service-maintainers
+/task/deprecated-image-check                    @konflux-ci/integration-service-maintainers
