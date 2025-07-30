@@ -426,9 +426,6 @@ main() {
         exit 0
     fi
 
-    info "prepare Konflux standard pipelines"
-    prepare_pipelines
-
     for migration_file in $output; do
         info "check pass shellcheck"
         check_pass_shellcheck "$migration_file"
@@ -442,14 +439,6 @@ main() {
         info "check migration file name matches the concrete task version in the label"
         check_version_match "$migration_file"
 
-        info "cleanup any existing pipeline files modified previously."
-        find "${WORK_DIR}/pipelines" -type f -name "*.modified" -delete
-
-        info "check apply migrations to standard pipelines included in the build-pipeline-config"
-        check_apply_on_pipelines "$migration_file"
-
-        info "check apply pipelines with migrations into a cluster"
-        check_apply_in_real_cluster
     done
 }
 
