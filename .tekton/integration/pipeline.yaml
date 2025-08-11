@@ -1,0 +1,71 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: konflux-test-tasks-test-pipeline
+spec:
+  description: |
+    Runs bash script validation and migration validation
+  params:
+    - description: Snapshot of the application
+      name: SNAPSHOT
+
+  tasks:
+    - name: test-metadata
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: /tasks/test-metadata/0.1/test-metadata.yaml
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+        - name: test-name
+          value: "konflux-test-tasks-test-pipeline"
+    - name: shell-check
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/linters/shellcheck/0.1/shellcheck.yaml
+      params:
+        - name: git-url
+          value: "$(tasks.test-metadata.results.git-url)"
+        - name: git-revision
+          value: "$(tasks.test-metadata.results.git-revision)"
+      runAfter:
+        - test-metadata
+    - name: checkton
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/linters/checkton/0.1/checkton.yaml
+      params:
+        - name: git-url
+          value: "$(tasks.test-metadata.results.git-url)"
+        - name: git-revision
+          value: "$(tasks.test-metadata.results.git-revision)"
+      runAfter:
+        - test-metadata
+    - name: validation
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/14rcole/konflux-test-tasks.git #TODO: update to konflux-ci org before merging
+          - name: revision
+            value: stoneintg-1235 #TODO: Update to main before merging
+          - name: pathInRepo
+            value: .tekton/integration/validate-migration.yaml

@@ -9,7 +9,7 @@ metadata:
     pipelinesascode.tekton.dev/cancel-in-progress: "true"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "main" && ( "task/deprecated-image-check/0.5/***".pathChanged() || ".tekton/deprecated-image-check-v05-pull-request.yaml".pathChanged()
+      == "main" && ( "task/deprecated-image-check/0.5/***".pathChanged() || ".tekton/deprecated-image-check-v05-pull-request.yaml".pathChanged() || ".tekton/integration/***".pathChanged()
       )
   creationTimestamp: null
   labels:
