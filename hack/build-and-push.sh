@@ -686,10 +686,12 @@ done
 if [ "$SKIP_INSTALL" == "" ]; then
     rm -f bundle_values.env
 
-    echo "export CUSTOM_DOCKER_BUILD_PIPELINE_BUNDLE=$docker_pipeline_bundle" >> bundle_values.env
-    echo "export CUSTOM_DOCKER_BUILD_OCI_TA_PIPELINE_BUNDLE=$docker_oci_ta_pipeline_bundle" >> bundle_values.env
-    echo "export CUSTOM_DOCKER_BUILD_MULTI_PLATFORM_OCI_TA_PIPELINE_BUNDLE=$docker_multi_platform_oci_ta_pipeline_bundle" >> bundle_values.env
-    echo "export CUSTOM_FBC_BUILDER_PIPELINE_BUNDLE=$fbc_pipeline_bundle" >> bundle_values.env
+    {
+        echo "export CUSTOM_DOCKER_BUILD_PIPELINE_BUNDLE=$docker_pipeline_bundle"
+        echo "export CUSTOM_DOCKER_BUILD_OCI_TA_PIPELINE_BUNDLE=$docker_oci_ta_pipeline_bundle"
+        echo "export CUSTOM_DOCKER_BUILD_MULTI_PLATFORM_OCI_TA_PIPELINE_BUNDLE=$docker_multi_platform_oci_ta_pipeline_bundle"
+        echo "export CUSTOM_FBC_BUILDER_PIPELINE_BUNDLE=$fbc_pipeline_bundle"
+    } >> bundle_values.env
 fi
 
 

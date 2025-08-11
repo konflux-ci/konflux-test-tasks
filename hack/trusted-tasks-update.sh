@@ -63,7 +63,7 @@ for c in "${COLLECT[@]}"; do
   case "${c}" in
     git)
       echo -n Resolving git Tasks
-      for task_dir in "${HACK_DIR}"/../task/${TASK_MATCH}*/*; do
+      for task_dir in "${HACK_DIR}"/../task/"${TASK_MATCH}"*/*; do
         [ ! -d "${task_dir}" ] && continue
         [ -f "${task_dir}/kustomization.yaml" ] && continue
         mapfile -td '/' dirparts < <(echo "${task_dir}")

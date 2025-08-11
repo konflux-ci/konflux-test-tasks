@@ -1,4 +1,5 @@
 #!/bin/env bash
+# shellcheck disable=SC2140
 
 set -o errexit
 set -o pipefail
@@ -32,7 +33,7 @@ cleanup+=("${get_vulnerabilities_script}")
 testdir() {
     testdir="$(mktemp -d)" && cleanup+=("${testdir}") && cd "${testdir}"
 
-    AfterEach 'rm -rf "$testdir"'
+    AfterEach "'rm -rf $testdir"
 }
 
 clair_report() {
