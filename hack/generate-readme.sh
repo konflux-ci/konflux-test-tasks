@@ -1,13 +1,15 @@
 #!/bin/bash
+# shellcheck disable=SC2001
 
 RESOURCE=$1
 if [ ! -f "$RESOURCE" ]; then
   echo "Usage: $0 \$PATH_TO_TASK_OR_STEPACTION"
   exit 1
 fi
+# shellcheck disable=SC2086
 echo "# $(yq '.metadata.name' $RESOURCE) $(yq '.kind | downcase' $RESOURCE)"
 echo
-yq '.spec.description' $RESOURCE
+yq '.spec.description' "$RESOURCE"
 echo
 
 if [[ $(yq '.spec.params | length' "$RESOURCE") -gt 0 ]]; then
@@ -19,7 +21,7 @@ if [[ $(yq '.spec.params | length' "$RESOURCE") -gt 0 ]]; then
           "|" + (.description // "" | sub("\n", " ")) +
           "|" + (.default // (.default != "*" | "")) +
           "|" + (.default != "*") + "|"
-      )' $RESOURCE
+      )' "$RESOURCE"
   )
 
   echo "## Parameters"
@@ -30,7 +32,7 @@ if [[ $(yq '.spec.params | length' "$RESOURCE") -gt 0 ]]; then
 fi
 
 if [[ $(yq '.spec.results | length' "$RESOURCE") -gt 0 ]]; then
-  RESULTS=$(yq '.spec.results.[] | ("|" + .name + "|" + (.description // "" | sub("\n", " ")) + "|")' $RESOURCE)
+    RESULTS=$(yq '.spec.results.[] | ("|" + .name + "|" + (.description // "" | sub("\n", " ")) + "|")' "$RESOURCE")
 
   echo "## Results"
   echo "|name|description|"
@@ -40,7 +42,7 @@ if [[ $(yq '.spec.results | length' "$RESOURCE") -gt 0 ]]; then
 fi
 
 if [[ $(yq '.spec.workspaces | length' "$RESOURCE") -gt 0 ]]; then
-  WORKSPACES=$(yq '.spec.workspaces.[] | ("|" + .name + "|" + (.description // "" | sub("\n", " ")) + "|" + (.optional // "false") + "|")' $RESOURCE)
+  WORKSPACES=$(yq '.spec.workspaces.[] | ("|" + .name + "|" + (.description // "" | sub("\n", " ")) + "|" + (.optional // "false") + "|")' "$RESOURCE")
 
   echo "## Workspaces"
   echo "|name|description|optional|"
