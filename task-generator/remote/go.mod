@@ -8,7 +8,7 @@ require (
 	github.com/tektoncd/pipeline v1.3.1
 	k8s.io/api v0.34.0
 	k8s.io/apimachinery v0.34.0
-	k8s.io/cli-runtime v0.33.4
+	k8s.io/cli-runtime v0.34.0
 	k8s.io/klog/v2 v2.130.1
 	sigs.k8s.io/controller-runtime v0.22.0
 )
