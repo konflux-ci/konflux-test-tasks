@@ -19,15 +19,16 @@ if [ -z "$PIPELINE_NAME" ]; then
   exit 1
 fi
 
-APPNAME=$(basename $GITREPO)
-IMAGE_FULL_TAG=$(git ls-remote $GITREPO HEAD)
+APPNAME=$(basename "$GITREPO")
+IMAGE_FULL_TAG=$(git ls-remote "$GITREPO" HEAD)
 IMAGE_SHORT_TAG=${IMAGE_FULL_TAG:position:7}
 BUILD_TAG=$(date +"%Y-%m-%d-%H%M%S")
+export BUILD_TAG
 NS=$(oc config view --minify -o "jsonpath={..namespace}")
 
 if [ -z "$QUAY_NAMESPACE" ]; then
   IMG=image-registry.openshift-image-registry.svc:5000/$NS/$APPNAME:$IMAGE_SHORT_TAG
-  echo QUAY_NAMESPACE env variable is not set, pushing to $IMG
+  echo QUAY_NAMESPACE env variable is not set, pushing to "$IMG"
 else
   if oc get secret redhat-appstudio-staginguser-pull-secret &>/dev/null; then
      # Ensure that the appstudio-pipeline service account has access to the secret. Although the
@@ -46,17 +47,17 @@ else
      echo ""
   fi
   IMG=quay.io/$QUAY_NAMESPACE/$APPNAME:$IMAGE_SHORT_TAG
-  echo Building $IMG
+  echo Building "$IMG"
 fi
 
 if [ "$SKIP_CHECKS" == "1" ]; then
   SKIP_CHECKS_PARAM="-p skip-checks=true"
 fi
 
-tkn pipeline start $PIPELINE_NAME \
-    -w name=workspace,volumeClaimTemplateFile=$SCRIPTDIR/test-build/workspace-template.yaml \
-    $SKIP_CHECKS_PARAM \
-    -p git-url=$GITREPO \
-    -p output-image=$IMG \
+tkn pipeline start "$PIPELINE_NAME" \
+    -w name=workspace,volumeClaimTemplateFile="$SCRIPTDIR"/test-build/workspace-template.yaml \
+    "$SKIP_CHECKS_PARAM" \
+    -p git-url="$GITREPO" \
+    -p output-image="$IMG" \
     "${TKN_PARAMS[@]}" \
     --use-param-defaults

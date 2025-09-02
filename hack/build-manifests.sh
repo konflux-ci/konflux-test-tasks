@@ -9,9 +9,9 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "If you are using Homebrew, install with 'brew install gnu-sed'." >&2
     exit 1
   fi
-  SED_CMD=gsed
+  SED_CMD="gsed"
 else
-  SED_CMD=sed
+  SED_CMD="sed"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
@@ -31,11 +31,8 @@ SKIP_PIPELINES="gitops-pull-request-rhtap"
 warning_message="# WARNING: This is an auto generated file, do not modify this file directly"
 
 main() {
-    local dirs
-
     cd "$SCRIPT_DIR/.."
-    local ret=0
-    find task/*/*/*.yaml -maxdepth 0 | awk -F '/' '{ print $0, $2, $3, $4 }' | \
+    ret=0
     while read -r task_path task_name task_version file_name
     do
         if [[ "$file_name" == "kustomization.yaml" ]]; then
@@ -64,9 +61,8 @@ main() {
         fi
         # Add a warning message in the generated file
         ${SED_CMD} -i "1 i $warning_message" "task/$task_name/$task_version/$task_name.yaml"
-    done
+    done < <(find task/*/*/*.yaml -maxdepth 0 | awk -F '/' '{ print $0, $2, $3, $4 }')
 
-    find pipelines/*/*.yaml -maxdepth 0 | awk -F '/' '{ print $0, $2, $3 }' | \
     while read -r pipeline_path pipeline_name file_name
     do
         if [[ "$file_name" == "kustomization.yaml" ]]; then
@@ -95,7 +91,7 @@ main() {
         fi
         # Add a warning message in the generated file
         ${SED_CMD} -i "1 i $warning_message" "pipelines/$pipeline_name/$pipeline_name.yaml"
-    done
+    done <<< <(find find pipelines/*/*.yaml -maxdepth 0 | awk -F '/' '{ print $0, $2, $3 }')
 
     exit "$ret"
 
