@@ -8,8 +8,7 @@ metadata:
     pipelinesascode.tekton.dev/cancel-in-progress: "false"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" && ( "/task/clair-scan/0.2/***".pathChanged() || ".tekton/clair-scan-v02-push.yaml".pathChanged() || ".tekton/integration/***".pathChanged()
-      )
+      == "main" && "/task/clair-scan/0.2/***".pathChanged()
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: konflux-test-tasks
