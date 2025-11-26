@@ -32,6 +32,8 @@ spec:
     value: Dockerfile
   - name: path-context
     value: task/deprecated-image-check/0.5
+  - name: STEPS_IMAGE
+    value: quay.io/konflux-ci/tekton-catalog/task-init:0.2@sha256:3ca52e1d8885fc229bd9067275f44d5b21a9a609981d0324b525ddeca909bf10
   pipelineSpec:
     finally:
     - name: show-summary
@@ -208,7 +210,7 @@ spec:
         - name: name
           value: tkn-bundle-oci-ta
         - name: bundle
-          value: quay.io/konflux-ci/tekton-catalog/task-tkn-bundle-oci-ta:0.2@sha256:9713f360e1cb7aa37fc98b633affcaf002ddfee5362b75123447d148cf0f8960
+          value: quay.io/hongweiliu/task-tkn-bundle-oci-ta:0.2
         - name: kind
           value: task
         resolver: bundles
