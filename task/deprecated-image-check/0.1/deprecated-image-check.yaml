@@ -31,7 +31,7 @@ spec:
   steps:
     # Download Pyxis metadata about the image
     - name: query-pyxis
-      image: quay.io/konflux-ci/konflux-test:v1.4.40@sha256:99eb8bcc7bcb35bdd5edea7b0ac333bbdb67586dea6b4dab92baf2b8fb32bf2c
+      image: quay.io/konflux-ci/konflux-test:v1.4.43@sha256:0bcc59de96bdc6f989d5c06d142d674da5d495c450a760fdd7d6fd333433342e
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       env:
@@ -61,7 +61,7 @@ spec:
 
     # Run the tests and save output
     - name: run-conftest
-      image: quay.io/konflux-ci/konflux-test:v1.4.40@sha256:99eb8bcc7bcb35bdd5edea7b0ac333bbdb67586dea6b4dab92baf2b8fb32bf2c
+      image: quay.io/konflux-ci/konflux-test:v1.4.43@sha256:0bcc59de96bdc6f989d5c06d142d674da5d495c450a760fdd7d6fd333433342e
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       env:
