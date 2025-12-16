@@ -4,3 +4,4 @@
 /task/clair-scan                                @konflux-ci/integration-service-maintainers
 /task/clamav-scan                               @konflux-ci/integration-service-maintainers
 /task/deprecated-image-check                    @konflux-ci/integration-service-maintainers
+/task/roxctl-scan                               @konflux-ci/integration-service-maintainers
