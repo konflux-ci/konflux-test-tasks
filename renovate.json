@@ -22,7 +22,8 @@
       "matchFileNames": [
         "task/clair-scan/**",
         "task/clamav-scan/**",
-        "task/deprecated-image-check/**"
+        "task/deprecated-image-check/**",
+        "task/roxctl-scan/**"
       ]
     },
     {
