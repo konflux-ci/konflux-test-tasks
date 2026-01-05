@@ -5,6 +5,9 @@ metadata:
   name: roxctl-scan
   labels:
     app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/tags: "konflux"
 spec:
   description: >-
     Scans container images for vulnerabilities using Roxctl, by comparing the components of container image against ACS vulnerability databases.
