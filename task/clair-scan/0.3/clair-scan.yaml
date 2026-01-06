@@ -30,6 +30,10 @@ spec:
       type: string
       description: The name of the key in the ConfigMap that contains the CA bundle data.
       default: ca-bundle.crt
+    - name: skip-oci-attach-report
+      type: string
+      description: If true, skips uploading the results to the image registry. Useful for read-only tests.
+      default: "false"
   results:
     - name: TEST_OUTPUT
       description: Tekton task test output.
@@ -185,6 +189,8 @@ spec:
       image: quay.io/konflux-ci/oras:latest@sha256:4542f5a2a046ca36653749a8985e46744a5d2d36ee10ca14409be718ce15129e
       workingDir: /tekton/home
       env:
+        - name: SKIP_OCI_ATTACH_REPORT
+          value: $(params.skip-oci-attach-report)
         - name: IMAGE_URL
           value: $(params.image-url)
       script: |
@@ -194,8 +200,15 @@ spec:
         set -o nounset
         set -o pipefail
 
+        if [ "$SKIP_OCI_ATTACH_REPORT" = "true" ]; then
+          echo 'OCI attach report skipped by parameter.'
+          echo '{}' > reports.json
+          exit 0
+        fi
+
         if ! compgen -G "clair-report-*.json" > /dev/null; then
           echo 'No Clair reports generated. Skipping upload.'
+          echo '{}' > reports.json
           exit 0
         fi
 
