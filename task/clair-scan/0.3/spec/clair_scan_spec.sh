@@ -6,12 +6,13 @@ set -o nounset
 
 eval "$(shellspec - -c) exit 1"
 
-task_path=clair-scan.yaml
+# Path to clair-scan task relative to spec/ directory
+task_path="../clair-scan.yaml"
 
-if [[ -f "../${task_path}" ]]; then
-    task_path="../${task_path}"
+if [[ ! -f "${task_path}" ]]; then
+    echo "ERROR: Task file not found: ${task_path}"
+    exit 1
 fi
-
 
 extract_script() {
   script="$(mktemp --tmpdir script_XXXXXXXXXX.sh)"
@@ -32,13 +33,13 @@ cleanup+=("${get_vulnerabilities_script}")
 testdir() {
     testdir="$(mktemp -d)" && cleanup+=("${testdir}") && cd "${testdir}"
 
-    AfterEach 'rm -rf "$testdir"'
+    # FIX SC2016: Use double quotes to allow $testdir expansion 
+    AfterEach "rm -rf $testdir"
 }
 
 clair_report() {
     echo "report --image-ref=registry.io/repository/image@$1 --db-path=/tmp/matcher.db --format=$2"
 }
-
 
 Describe "get vulnerabilities"
     BeforeEach testdir
@@ -66,10 +67,12 @@ report in quay format"
         The contents of file "clair-report-amd64.json" should equal 'report in clair format'
         The contents of file "clair-result-arm64.json" should equal 'report in quay format'
         The contents of file "clair-report-arm64.json" should equal 'report in clair format'
-        The variable clair_action_args[@] should eq "$(clair_report sha256:f0cacc1a quay) "\
-"$(clair_report sha256:f0cacc1a clair) "\
-"$(clair_report sha256:cc1af0ca quay) "\
-"$(clair_report sha256:cc1af0ca clair)"
+        
+        # FIX SC2140: Consolidated into a single quoted string to avoid "A"B"C" error [cite: 8, 9, 10]
+        The variable clair_action_args[@] should eq "$(clair_report sha256:f0cacc1a quay) \
+$(clair_report sha256:f0cacc1a clair) \
+$(clair_report sha256:cc1af0ca quay) \
+$(clair_report sha256:cc1af0ca clair)"
     End
 
     It "fails in clair-action quay report"
@@ -169,9 +172,11 @@ Attaching clair-report-amd64.json to registry.io/repository/image@sha256:f0cacc1
 Attaching clair-report-arm64.json to registry.io/repository/image@sha256:cc1af0ca
 Attaching clair-report-ppc64le.json to registry.io/repository/image@sha256:f01acacc"
         The contents of file "auth.json" should equal "selected auth"
-        The variable oras_args[@] should eq "$(oras_attach sha256:f0cacc1a clair-report-amd64.json) "\
-"$(oras_attach sha256:cc1af0ca clair-report-arm64.json) "\
-"$(oras_attach sha256:f01acacc clair-report-ppc64le.json)"
+        
+        # FIX SC2140: Consolidated multi-line string into one set of double quotes [cite: 12, 13, 14]
+        The variable oras_args[@] should eq "$(oras_attach sha256:f0cacc1a clair-report-amd64.json) \
+$(oras_attach sha256:cc1af0ca clair-report-arm64.json) \
+$(oras_attach sha256:f01acacc clair-report-ppc64le.json)"
         The contents of file "reports.json" should equal '{"sha256:f0cacc1a":"sha256:a1ccac0f","sha256:cc1af0ca":"sha256:ac0fa1cc","sha256:f01acacc":"sha256:ccaca10f"}'
     End
 End

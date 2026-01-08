@@ -1,0 +1,167 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: test-clair-scan
+  labels:
+    appstudio.openshift.io/application: konflux-test-tasks
+    appstudio.openshift.io/component: clair-scan-v03
+spec:
+  pipelineSpec:
+    description: |
+      Test the clair-scan task by scanning a known container image
+      and validating the expected results structure.
+    results:
+      - name: TEST_OUTPUT
+        value: "$(tasks.check-results.results.TEST_OUTPUT)"
+    tasks:
+      - name: clair-scan
+        taskRef:
+          resolver: git
+          params:
+            - name: url
+              value: https://github.com/kasemAlem/konflux-test-tasks.git
+            - name: revision
+              value: STONEINTG-1416
+            - name: pathInRepo
+              value: task/clair-scan/0.3/clair-scan.yaml
+        params:
+          - name: skip-oci-attach-report
+            value: "true"
+          - name: image-url
+            value: "quay.io/konflux-ci/konflux-test:v1.4.39"
+          - name: image-digest
+            value: "sha256:89cdc9d251e15d07018548137b4034669df8e9e2b171a188c8b8201d3638cb17"
+      - name: check-results
+        runAfter:
+          - clair-scan
+        params:
+          - name: TEST_OUTPUT
+            value: "$(tasks.clair-scan.results.TEST_OUTPUT)"
+          - name: SCAN_OUTPUT
+            value: "$(tasks.clair-scan.results.SCAN_OUTPUT)"
+          - name: IMAGES_PROCESSED
+            value: "$(tasks.clair-scan.results.IMAGES_PROCESSED)"
+          - name: REPORTS
+            value: "$(tasks.clair-scan.results.REPORTS)"
+        taskSpec:
+          params:
+            - name: TEST_OUTPUT
+            - name: SCAN_OUTPUT
+            - name: IMAGES_PROCESSED
+            - name: REPORTS
+          results:
+            - name: TEST_OUTPUT
+              description: Test result output
+          steps:
+            - name: validate-results
+              image: quay.io/konflux-ci/konflux-test:v1.4.39@sha256:89cdc9d251e15d07018548137b4034669df8e9e2b171a188c8b8201d3638cb17
+              env:
+                - name: TEST_OUTPUT
+                  value: "$(params.TEST_OUTPUT)"
+                - name: SCAN_OUTPUT
+                  value: "$(params.SCAN_OUTPUT)"
+                - name: IMAGES_PROCESSED
+                  value: "$(params.IMAGES_PROCESSED)"
+                - name: REPORTS
+                  value: "$(params.REPORTS)"
+                - name: IMAGE_URL
+                  value: "quay.io/konflux-ci/konflux-test:v1.4.39"
+                - name: IMAGE_DIGEST
+                  value: "sha256:89cdc9d251e15d07018548137b4034669df8e9e2b171a188c8b8201d3638cb17"
+              script: |
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                echo "=== Validating clair-scan task results ==="
+
+                # Validate TEST_OUTPUT structure
+                echo "--- Checking TEST_OUTPUT ---"
+                echo "$TEST_OUTPUT" | jq -e '
+                  has("result") and
+                  has("note") and
+                  has("timestamp") and
+                  (.result | IN("SUCCESS", "WARNING", "ERROR", "SKIPPED"))
+                ' > /dev/null || {
+                  echo "FAIL: TEST_OUTPUT missing required fields or invalid result"
+                  echo "Got: $TEST_OUTPUT"
+                  exit 1
+                }
+
+                result=$(echo "$TEST_OUTPUT" | jq -r '.result')
+                if [[ "$result" != "SUCCESS" && "$result" != "WARNING" ]]; then
+                  echo "FAIL: Expected result SUCCESS or WARNING, got: $result"
+                  exit 1
+                fi
+                echo "PASS: TEST_OUTPUT is valid with result=$result"
+
+                # Validate SCAN_OUTPUT structure
+                echo "--- Checking SCAN_OUTPUT ---"
+                echo "$SCAN_OUTPUT" | jq -e '
+                  has("vulnerabilities") and
+                  has("unpatched_vulnerabilities") and
+                  (.vulnerabilities | has("critical", "high", "medium", "low", "unknown")) and
+                  (.unpatched_vulnerabilities | has("critical", "high", "medium", "low", "unknown"))
+                ' > /dev/null || {
+                  echo "FAIL: SCAN_OUTPUT missing required vulnerability fields"
+                  echo "Got: $SCAN_OUTPUT"
+                  exit 1
+                }
+                echo "PASS: SCAN_OUTPUT has valid vulnerability structure"
+                echo "$SCAN_OUTPUT" | jq '.'
+
+                # Validate IMAGES_PROCESSED structure
+                echo "--- Checking IMAGES_PROCESSED ---"
+                echo "$IMAGES_PROCESSED" | jq -e '
+                  has("image") and
+                  (.image | has("pullspec", "digests")) and
+                  (.image.digests | type) == "array" and
+                  (.image.digests | length) > 0
+                ' > /dev/null || {
+                  echo "FAIL: IMAGES_PROCESSED missing required fields"
+                  echo "Got: $IMAGES_PROCESSED"
+                  exit 1
+                }
+
+                # Verify pullspec matches input
+                pullspec=$(echo "$IMAGES_PROCESSED" | jq -r '.image.pullspec')
+                if [[ "$pullspec" != "$IMAGE_URL" ]]; then
+                  echo "FAIL: IMAGES_PROCESSED pullspec mismatch"
+                  echo "Expected: $IMAGE_URL"
+                  echo "Got: $pullspec"
+                  exit 1
+                fi
+
+                # Verify digest is in the list
+                if ! echo "$IMAGES_PROCESSED" | jq -e \
+                  --arg digest "$IMAGE_DIGEST" '.image.digests | index($digest) != null' > /dev/null; then
+                  echo "FAIL: IMAGE_DIGEST not found in IMAGES_PROCESSED digests"
+                  echo "Expected digest: $IMAGE_DIGEST"
+                  echo "Got digests: $(echo "$IMAGES_PROCESSED" | jq '.image.digests')"
+                  exit 1
+                fi
+                echo "PASS: IMAGES_PROCESSED is valid"
+                echo "$IMAGES_PROCESSED" | jq '.'
+
+                # Validate REPORTS (can be empty object or mapping)
+                echo "--- Checking REPORTS ---"
+                if [[ -n "$REPORTS" && "$REPORTS" != "{}" ]]; then
+                  echo "$REPORTS" | jq -e 'type == "object"' > /dev/null || {
+                    echo "FAIL: REPORTS is not a valid JSON object"
+                    echo "Got: $REPORTS"
+                    exit 1
+                  }
+                  echo "PASS: REPORTS is valid"
+                  echo "$REPORTS" | jq '.'
+                else
+                  echo "PASS: REPORTS is empty (no reports attached)"
+                fi
+
+                echo ""
+                echo "=== All clair-scan result validations passed ==="
+
+                # Output TEST_OUTPUT as result for pipeline
+                echo -n "$TEST_OUTPUT" > "$(results.TEST_OUTPUT.path)"
+  timeouts:
+    pipeline: 1h0m0s
+    tasks: 45m0s

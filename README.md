@@ -39,6 +39,13 @@ The `policies` directory contains the [Conforma](https://conforma.dev/docs/user-
 ### Task generator
 The `task-generator` directory contains a collection of tools used for generating various versions of tasks.
 
+### Integration Tests
+
+The `.tekton/integration` directory contains integration test PipelineRuns for validating task functionality in Konflux environments. These tests are separate from the CI workflow tests and are designed to run as Konflux integration tests.
+
+Currently available integration tests:
+- `test-clair-scan.yaml` - Validates the clair-scan task outputs (TEST_OUTPUT, SCAN_OUTPUT, IMAGES_PROCESSED, REPORTS)
+
 ### Scripts
 
 The `hack` directory contains the various scripts that are used during the CI runs of the build/test/release workflow for the individual Tekton tasks.
