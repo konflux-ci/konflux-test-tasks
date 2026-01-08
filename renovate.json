@@ -23,6 +23,7 @@
         "task/clair-scan/**",
         "task/clamav-scan/**",
         "task/deprecated-image-check/**",
+        "task/fetch-data-to-trusted-artifact/**",
         "task/roxctl-scan/**"
       ]
     },
