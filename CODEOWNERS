@@ -5,3 +5,5 @@
 /task/clamav-scan                               @konflux-ci/integration-service-maintainers
 /task/deprecated-image-check                    @konflux-ci/integration-service-maintainers
 /task/roxctl-scan                               @konflux-ci/integration-service-maintainers
+/task/roxctl-scan                               @konflux-ci/integration-service-maintainers
+/task/fetch-data-to-trusted-artifact            @konflux-ci/integration-service-maintainers
