@@ -97,11 +97,11 @@ spec:
       image: quay.io/konflux-ci/clair-in-ci:6064895  # explicit floating tag, daily updates, per arch call this is exempt for now for use of image digest
       computeResources:
         limits:
-          memory: 7Gi
-          cpu: 800m
+          memory: 33Gi
+          cpu: 2300m
         requests:
-          memory: 7Gi
-          cpu: 800m
+          memory: 33Gi
+          cpu: 2300m
       imagePullPolicy: Always
       env:
         - name: IMAGE_URL
