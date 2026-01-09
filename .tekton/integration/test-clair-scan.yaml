@@ -20,9 +20,9 @@ spec:
           resolver: git
           params:
             - name: url
-              value: https://github.com/kasemAlem/konflux-test-tasks.git
+              value: https://github.com/konflux-ci/konflux-test-tasks.git
             - name: revision
-              value: STONEINTG-1416
+              value: main
             - name: pathInRepo
               value: task/clair-scan/0.3/clair-scan.yaml
         params:
