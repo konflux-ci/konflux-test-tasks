@@ -26,15 +26,11 @@ spec:
       type: string
       description: |
         Full name of image to scan.
-
         SHA 256 digest may be included to ensure scan of sequental runs with same tag.
-        Examples: 'gcr.io/rox/sample:5.0-rc1', '$(params.IMAGE)', '$(params.IMAGE)@$(tasks.buildah.results.IMAGE_DIGEST)'
       default: ""
     - name: insecure-skip-tls-verify
       description: |
         Do not verify TLS certificates.
-
-        When set to "true", skip verifying the TLS certs of the Central endpoint.
       type: string
       default: "false"
     - name: output_format
@@ -44,19 +40,22 @@ spec:
     - name: rox_token_file
       description: |
         Path to the API Token file (if authentication through API token).
-        Mutually exclusive with rox_config_dir.
-        The path must be prefixed with "/rox-api-token-auth".
-        Example "/rox-api-token-auth/rox_api_token"
       type: string
       default: ""
     - name: rox_config_dir
       type: string
-      description: |
-        Path to the roxtl config directory within the roxctl-config workspace.
-        The path must be prefixed with "/roxctl-config".
+      description: Path to the roxtl config directory.
       default: ""
+    - name: ca-trust-config-map-name
+      type: string
+      description: The name of the ConfigMap to read CA bundle data from.
+      default: trusted-ca
+    - name: ca-trust-config-map-key
+      type: string
+      description: The name of the key in the ConfigMap that contains the CA bundle data.
+      default: ca-bundle.crt
     - name: skip-upload
-      description: If true, skips uploading the results to the image registry. Useful for read-only tests.
+      description: If true, skips uploading the results to the image registry.
       default: "false"
     - name: mock
       description: If true, mocks the network calls to Central. For testing only.
@@ -87,15 +86,23 @@ spec:
       volumeMounts:
         - name: token-vol
           mountPath: /service-account-token
-      args:
-        - central
-        - m2m
-        - exchange
-        - --insecure-skip-tls-verify=$(INSECURE)
-        - --token-file=/service-account-token/token
+      env:
+        - name: MOCK
+          value: $(params.mock)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        if [ "$MOCK" == "true" ]; then
+          echo "MOCK MODE: Skipping token exchange."
+          exit 0
+        fi
+
+        roxctl central m2m exchange \
+          --insecure-skip-tls-verify="$INSECURE" \
+          --token-file=/service-account-token/token
     - name: get-image-manifests
       image: quay.io/konflux-ci/konflux-test:v1.4.44@sha256:00d5ba3ac4fadb315da2199e931c1167f2b45884d2990de39104dfa9b78117d4
-      # the roxctl image neither has skopeo or jq installed. Hence, we create an extra step to get the image manifest digests
       computeResources:
         limits:
           memory: 512Mi
@@ -114,15 +121,11 @@ spec:
       script: |
         #!/usr/bin/env bash
         set -euo pipefail
-        # shellcheck source=/dev/null
-        . /utils.sh
 
         imagewithouttag=$(echo -n $IMAGE_URL | sed "s/\(.*\):.*/\1/")
-        # strip new-line escape symbol from parameter and save it to variable
         imageanddigest=$(echo $imagewithouttag@$IMAGE_DIGEST)
         echo "Inspecting raw image manifest $imageanddigest."
 
-        # Get the arch and image manifests by inspecting the image. This is mainly for identifying image indexes
         image_manifests=$(get_image_manifests -i "${imageanddigest}")
         if [ -n "$image_manifests" ]; then
           echo "$image_manifests" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while read -r arch arch_sha; do
@@ -130,7 +133,7 @@ spec:
           done
         else
           echo "Failed to get image manifests from image \"$imageanddigest\""
-          note="Task $(context.task.name) failed: Failed to get image manifests from image \"$imageanddigest\". For details, check Tekton task log."
+          note="Task $(context.task.name) failed: Failed to get image manifests."
           ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
           echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
           exit 0
@@ -154,16 +157,25 @@ spec:
           value: $(params.rox_central_endpoint)
         - name: ROX_EXECUTION_ENV
           value: Tekton
+        - name: MOCK
+          value: $(params.mock)
       script: |
         #!/usr/bin/env bash
-          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --output="$OUTPUT" --image="$IMAGE" | tee /tekton/home/rox-output.json
-          if [ ! -s /tekton/home/rox-output.json ]; then
-            echo "Failed to scan image using Roxctl"
-            note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
-            ERROR_OUTPUT=$note
-            echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
-            exit 0
-          fi
+
+        if [ "$MOCK" == "true" ]; then
+          # Generate a minimal valid JSON that satisfies downstream tools
+          echo '{"result": "mocked_scan_pass"}' > /tekton/home/rox-output.json
+          exit 0
+        fi
+
+        roxctl image scan --insecure-skip-tls-verify="$INSECURE" --output="$OUTPUT" --image="$IMAGE" | tee /tekton/home/rox-output.json
+        if [ ! -s /tekton/home/rox-output.json ]; then
+          echo "Failed to scan image using Roxctl"
+          note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE"
+          ERROR_OUTPUT=$note
+          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+          exit 0
+        fi
     - name: proccess-output
       image: quay.io/konflux-ci/konflux-test:v1.4.44@sha256:00d5ba3ac4fadb315da2199e931c1167f2b45884d2990de39104dfa9b78117d4
       env:
@@ -174,11 +186,9 @@ spec:
       workingDir: /tekton/home
       script: |
         #!/usr/bin/env bash
-
         set -o errexit
         set -o nounset
         set -o pipefail
-        # shellcheck source=/utils.sh
         . /utils.sh
 
         images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
@@ -187,12 +197,10 @@ spec:
         for sha_file in image-manifest-*.sha; do
           if [ -e "$sha_file" ]; then
             arch_sha=$(cat "$sha_file")
-
             digests_processed+=("\"$arch_sha\"")
           fi
         done
 
-        # If the image is an Image Index, also add the Image Index digest to the list.
         if [[ "${digests_processed[*]}" != *"$IMAGE_DIGEST"* ]]; then
           digests_processed+=("\"$IMAGE_DIGEST\"")
         fi
@@ -210,15 +218,12 @@ spec:
           value: $(params.skip-upload)
       script: |
         #!/usr/bin/env bash
-
         set -o errexit
         set -o nounset
         set -o pipefail
 
         if [ "$SKIP_UPLOAD" == "true" ]; then
           echo "Upload skipped by parameter."
-          # Create an empty JSON object so the next step
-          # doesn't fail when trying to read reports.json
           echo "{}" > reports.json
           exit 0
         fi
@@ -258,8 +263,6 @@ spec:
         echo "${reports_json}" > reports.json
     - name: conftest-vulnerabilities
       image: quay.io/konflux-ci/konflux-test:v1.4.44@sha256:00d5ba3ac4fadb315da2199e931c1167f2b45884d2990de39104dfa9b78117d4
-      # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
-      # the cluster will set imagePullPolicy to IfNotPresent
       computeResources:
         limits:
           memory: 2Gi
@@ -274,6 +277,7 @@ spec:
         #!/usr/bin/env bash
         set -euo pipefail
         . /utils.sh
+
         trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
 
         rox_result_files=$(ls /tekton/home/rox-output*.json)
@@ -293,16 +297,14 @@ spec:
             --output=json | tee /tekton/home/rox-vulnerabilities-"$file_suffix.json" || true
           fi
 
-          #check for missing "rox-vulnerabilities-<arch>/image-index" file and create a string
           if [ ! -f "/tekton/home/rox-vulnerabilities-$file_suffix.json" ]; then
             missing_vulnerabilities_files+="${missing_vulnerabilities_files:+, }/tekton/home/rox-vulnerabilities-$file_suffix.json"
           fi
         done
 
         if [ -n "$missing_vulnerabilities_files" ]; then
-          note="Task $(context.task.name) failed: $missing_vulnerabilities_files did not generate. For details, check Tekton task log."
+          note="Task $(context.task.name) failed: $missing_vulnerabilities_files did not generate."
           TEST_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
-          echo "$missing_vulnerabilities_files did not generate correctly. For details, check conftest command in Tekton task log."
           echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
           exit 0
         fi
