@@ -55,6 +55,12 @@ spec:
         Path to the roxtl config directory within the roxctl-config workspace.
         The path must be prefixed with "/roxctl-config".
       default: ""
+    - name: skip-upload
+      description: If true, skips uploading the results to the image registry. Useful for read-only tests.
+      default: "false"
+    - name: mock
+      description: If true, mocks the network calls to Central. For testing only.
+      default: "false"
   results:
     - name: TEST_OUTPUT
       description: Tekton task test output.
@@ -81,12 +87,22 @@ spec:
       volumeMounts:
         - name: token-vol
           mountPath: /service-account-token
-      args:
-        - central
-        - m2m
-        - exchange
-        - --insecure-skip-tls-verify=$(INSECURE)
-        - --token-file=/service-account-token/token
+      env:
+        - name: MOCK
+          value: $(params.mock)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        # Mock mode for testing, will bypass token exchange
+        if [ "$MOCK" == "true" ]; then
+          echo "MOCK MODE: Skipping token exchange."
+          exit 0
+        fi
+
+        roxctl central m2m exchange \
+          --insecure-skip-tls-verify="$INSECURE" \
+          --token-file=/service-account-token/token
     - name: get-image-manifests
       image: quay.io/konflux-ci/konflux-test:v1.4.44@sha256:00d5ba3ac4fadb315da2199e931c1167f2b45884d2990de39104dfa9b78117d4
       # the roxctl image neither has skopeo or jq installed. Hence, we create an extra step to get the image manifest digests
@@ -148,16 +164,27 @@ spec:
           value: $(params.rox_central_endpoint)
         - name: ROX_EXECUTION_ENV
           value: Tekton
+        - name: MOCK
+          value: $(params.mock)
       script: |
         #!/usr/bin/env bash
-          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --output="$OUTPUT" --image="$IMAGE" | tee /tekton/home/rox-output.json
-          if [ ! -s /tekton/home/rox-output.json ]; then
-            echo "Failed to scan image using Roxctl"
-            note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
-            ERROR_OUTPUT=$note
-            echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
-            exit 0
-          fi
+        set -euo pipefail
+
+        # Mock mode for testing, will bypass the scan tool and generate a dummy output file
+        if [ "$MOCK" == "true" ]; then
+          echo "MOCK MODE: Generating fake scan result."
+          echo '{"result": "mocked_scan_pass"}' > /tekton/home/rox-output.json
+          exit 0
+        fi
+
+        roxctl image scan --insecure-skip-tls-verify="$INSECURE" --output="$OUTPUT" --image="$IMAGE" | tee /tekton/home/rox-output.json
+        if [ ! -s /tekton/home/rox-output.json ]; then
+          echo "Failed to scan image using Roxctl"
+          note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
+          ERROR_OUTPUT=$note
+          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+          exit 0
+        fi
     - name: proccess-output
       image: quay.io/konflux-ci/konflux-test:v1.4.44@sha256:00d5ba3ac4fadb315da2199e931c1167f2b45884d2990de39104dfa9b78117d4
       env:
@@ -200,12 +227,22 @@ spec:
       env:
         - name: IMAGE_URL
           value: $(params.image-url)
+        - name: SKIP_UPLOAD
+          value: $(params.skip-upload)
       script: |
         #!/usr/bin/env bash
 
         set -o errexit
         set -o nounset
         set -o pipefail
+
+        if [ "$SKIP_UPLOAD" == "true" ]; then
+          echo "Upload skipped by parameter."
+          # Create an empty JSON object so the next step
+          # doesn't fail when trying to read reports.json
+          echo "{}" > reports.json
+          exit 0
+        fi
 
         if ! compgen -G "rox-output*.json" > /dev/null; then
           echo 'No Rox reports generated. Skipping upload.'
