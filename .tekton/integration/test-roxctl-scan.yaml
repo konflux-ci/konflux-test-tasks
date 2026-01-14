@@ -1,0 +1,101 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: test-roxctl-scan
+  labels:
+    appstudio.openshift.io/application: konflux-test-tasks
+    appstudio.openshift.io/component: roxctl-scan-v01
+spec:
+  pipelineSpec:
+    results:
+      - name: TEST_OUTPUT
+        value: "$(tasks.check-results.results.TEST_OUTPUT)"
+    tasks:
+      - name: roxctl-scan
+        taskRef:
+          resolver: git
+          params:
+            - name: url
+              value: https://github.com/jencull/konflux-test-tasks.git
+            - name: revision
+              value: STONEINTG-1417
+            - name: pathInRepo
+              value: task/roxctl-scan/0.1/roxctl-scan.yaml
+        params:
+          - name: skip-upload
+            value: "true"
+          - name: image-url
+            value: "quay.io/konflux-ci/konflux-test:v1.4.44"
+          - name: image-digest
+            value: "sha256:00d5ba3ac4fadb315da2199e931c1167f2b45884d2990de39104dfa9b78117d4"
+      - name: check-results
+        runAfter:
+          - roxctl-scan
+        params:
+          - name: TEST_OUTPUT
+            value: "$(tasks.roxctl-scan.results.TEST_OUTPUT)"
+          - name: SCAN_OUTPUT
+            value: "$(tasks.roxctl-scan.results.SCAN_OUTPUT)"
+          - name: IMAGES_PROCESSED
+            value: "$(tasks.roxctl-scan.results.IMAGES_PROCESSED)"
+          - name: REPORTS
+            value: "$(tasks.roxctl-scan.results.REPORTS)"
+        taskSpec:
+          params:
+            - name: TEST_OUTPUT
+            - name: SCAN_OUTPUT
+            - name: IMAGES_PROCESSED
+            - name: REPORTS
+          results:
+            - name: TEST_OUTPUT
+          steps:
+            - name: validate-results
+              image: quay.io/konflux-ci/konflux-test:v1.4.44
+              env:
+                - name: TEST_OUTPUT
+                  value: "$(params.TEST_OUTPUT)"
+                - name: SCAN_OUTPUT
+                  value: "$(params.SCAN_OUTPUT)"
+                - name: IMAGES_PROCESSED
+                  value: "$(params.IMAGES_PROCESSED)"
+                - name: REPORTS
+                  value: "$(params.REPORTS)"
+                - name: IMAGE_URL
+                  value: "quay.io/konflux-ci/konflux-test:v1.4.44"
+              script: |
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                echo "$TEST_OUTPUT" | jq -e 'has("result")' > /dev/null || exit 1
+                result=$(echo "$TEST_OUTPUT" | jq -r '.result')
+
+                if [[ "$result" != "SUCCESS" && "$result" != "WARNING" && "$result" != "FAILURE" ]]; then
+                  echo "FAIL: Unexpected result status: $result"
+                  exit 1
+                fi
+
+                echo "PASS: TEST_OUTPUT result=$result"
+
+                if echo "$SCAN_OUTPUT" | jq -e '.vulnerabilities != null' > /dev/null; then
+                   echo "PASS: SCAN_OUTPUT has vulnerabilities"
+                else
+                   exit 1
+                fi
+
+                pullspec=$(echo "$IMAGES_PROCESSED" | jq -r '.image.pullspec')
+                if [[ "$pullspec" != "$IMAGE_URL" ]]; then
+                  exit 1
+                fi
+
+                echo "PASS: IMAGES_PROCESSED valid."
+
+                if echo "$REPORTS" | jq -e 'type == "object"' > /dev/null; then
+                   echo "PASS: REPORTS valid"
+                else
+                   exit 1
+                fi
+                echo -n "$TEST_OUTPUT" > "$(results.TEST_OUTPUT.path)"
+  timeouts:
+    pipeline: 1h0m0s
+    tasks: 45m0s

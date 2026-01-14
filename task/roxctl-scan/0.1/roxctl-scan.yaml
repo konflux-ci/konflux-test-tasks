@@ -55,6 +55,10 @@ spec:
         Path to the roxtl config directory within the roxctl-config workspace.
         The path must be prefixed with "/roxctl-config".
       default: ""
+    - name: skip-upload
+      type: string
+      description: "If true, skips uploading the report to the registry. Useful for testing."
+      default: "false"
   results:
     - name: TEST_OUTPUT
       description: Tekton task test output.
@@ -200,12 +204,21 @@ spec:
       env:
         - name: IMAGE_URL
           value: $(params.image-url)
+        - name: SKIP_UPLOAD
+          value: $(params.skip-upload)
       script: |
         #!/usr/bin/env bash
 
         set -o errexit
         set -o nounset
         set -o pipefail
+
+        if [ "$SKIP_UPLOAD" == "true" ]; then
+          echo 'Upload skipped by parameter.'
+          # Create an empty reports.json so downstream steps don't fail, required for testing
+          echo "{}" > reports.json
+          exit 0
+        fi
 
         if ! compgen -G "rox-output*.json" > /dev/null; then
           echo 'No Rox reports generated. Skipping upload.'
