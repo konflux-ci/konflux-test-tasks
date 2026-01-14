@@ -150,14 +150,28 @@ spec:
           value: Tekton
       script: |
         #!/usr/bin/env bash
-          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --output="$OUTPUT" --image="$IMAGE" | tee /tekton/home/rox-output.json
-          if [ ! -s /tekton/home/rox-output.json ]; then
-            echo "Failed to scan image using Roxctl"
-            note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
-            ERROR_OUTPUT=$note
-            echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
-            exit 0
+
+        imagewithouttag=$(echo -n "$IMAGE_URL" | sed "s/\(.*\):.*/\1/")
+
+        for sha_file in /tekton/home/image-manifest-*.sha; do
+          if [ -e "$sha_file" ]; then
+            arch_sha=$(cat "$sha_file")
+            arch=$(basename "$sha_file" | sed 's/image-manifest-//;s/.sha//')
+            arch_specific_digest="$imagewithouttag@$arch_sha"
+
+            echo "Running roxctl on $arch image manifest."
+            # run the scan for each image manifest in the image index
+            roxctl image scan --insecure-skip-tls-verify="$INSECURE" --output="$OUTPUT" --image="$arch_specific_digest" | tee /tekton/home/rox-output.json
+            if [ ! -s /tekton/home/rox-output.json ]; then
+              echo "Failed to scan image using Roxctl"
+              note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
+              ERROR_OUTPUT=$note
+              echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+              exit 0
+            fi
+
           fi
+        done
     - name: proccess-output
       image: quay.io/konflux-ci/konflux-test:v1.4.44@sha256:00d5ba3ac4fadb315da2199e931c1167f2b45884d2990de39104dfa9b78117d4
       env:
