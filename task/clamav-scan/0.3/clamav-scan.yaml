@@ -9,7 +9,7 @@ metadata:
   name: clamav-scan
 spec:
   description: >-
-    Scans the content of container images for viruses, malware, and other malicious content using ClamAV antivirus scanner.
+    Scans the content of container images and OCI artifacts for viruses, malware, and other malicious content using ClamAV antivirus scanner.
   results:
     - name: TEST_OUTPUT
       description: Tekton task test output.
@@ -103,32 +103,150 @@ spec:
         mkdir logs
         mkdir content
         cd content
-        echo "Extracting image(s)."
+        echo "Detecting artifact type for ${imageanddigest}."
+        echo '{"artifact":{"pullspec":"'"${imageanddigest}"'","type":"unknown","mediaType":""}}' > /work/logs/artifact-meta.json
 
-        # Get the arch and image manifests by inspecting the image. This is mainly for identifying image indexes
-        image_manifests=$(get_image_manifests -i "${imageanddigest}")
-        # Proceed only if a specific arch is provided.
-        # This typically occurs when using Tekton Matrix to launch multiple TaskRuns to scan all architectures of a multi-arch image in parallel.
-        if [ -n "$IMAGE_ARCH" ]; then
-          arch="${IMAGE_ARCH#*/}"
-          if [ "${arch}" = "x86_64" ]; then
-            arch="amd64"
+        # Function to scan content and process results with ClamAV and EC
+        # Parameters:
+        #   $1: destination - path to the content to scan
+        #   $2: suffix - suffix for log file names (e.g., "oci", "amd64")
+        #   $3: digest - digest to add to digests_processed array
+        #   $4: scan_message - optional message describing what is being scanned
+        scan_and_process() {
+          local destination="$1"
+          local suffix="$2"
+          local digest="$3"
+          local scan_message="${4:-Scanning content}"
+
+          db_version=$(clamdscan --version | sed 's|.*/\(.*\)/.*|\1|')
+
+          echo "$scan_message. This operation may take a while."
+          clamdscan "${destination}" -vi --multiscan --fdpass \
+            | tee "/work/logs/clamscan-result-${suffix}.log" || true
+
+          echo "Executed-on: Scan was executed on clamsdcan version - $(clamdscan --version) Database version: $db_version" | tee -a "/work/logs/clamscan-result-${suffix}.log"
+
+          digests_processed+=("\"$digest\"")
+
+          if [[ -e "/work/logs/clamscan-result-${suffix}.log" ]]; then
+            # OPA/EC requires structured data input, add clamAV log into json
+            jq -Rs '{ output: . }' "/work/logs/clamscan-result-${suffix}.log" > "/work/logs/clamscan-result-log-${suffix}.json"
+
+            EC_EXPERIMENTAL=1 ec test \
+              --namespace required_checks \
+              --policy /project/clamav/virus-check.rego \
+              -o json \
+              "/work/logs/clamscan-result-log-${suffix}.json" || true
+
+            # workaround: due to a bug in ec-cli, we cannot generate json and appstudio output at the same time, running it again
+            EC_EXPERIMENTAL=1 ec test \
+              --namespace required_checks \
+              --policy /project/clamav/virus-check.rego \
+              -o appstudio \
+              "/work/logs/clamscan-result-log-${suffix}.json" | tee "/work/logs/clamscan-ec-test-${suffix}.json" || true
+
+            cat "/work/logs/clamscan-ec-test-${suffix}.json"
+          fi
+        }
+
+        # Detect artifact type: container image vs OCI artifact
+        # First, try to get image manifests (works for container images)
+        image_manifests=$(get_image_manifests -i "${imageanddigest}" 2>/dev/null || true)
+
+        # If get_image_manifests failed, check if it's an OCI artifact by inspecting manifest media type
+        if [ -z "$image_manifests" ]; then
+          echo "get_image_manifests returned empty, checking if this is an OCI artifact..."
+          raw_manifest=$(skopeo inspect --raw --registry-config ~/.docker/config.json "docker://${imageanddigest}" 2>/dev/null || true)
+          if [ -s /work/logs/artifact-meta.json ]; then
+            tmp=$(mktemp)
+            if jq '.artifact.type = "inspected"' /work/logs/artifact-meta.json > "$tmp"; then
+              mv "$tmp" /work/logs/artifact-meta.json || true
+            fi
           fi
 
-          # Check if arch is supported; if not (e.g., it's 'local', see link below), default to amd64.
-          # https://github.com/redhat-appstudio/infra-deployments/blob/main/components/multi-platform-controller/production/stone-prd-rh01/host-config.yaml#L9-L14
-          case "$arch" in
-            amd64|ppc64le|arm64|s390x)
-              ;;
-            *)
-              arch="amd64"
-              ;;
-          esac
+          if [ -n "$raw_manifest" ]; then
+            media_type=$(echo "$raw_manifest" | jq -r '.mediaType // .config.mediaType // empty' 2>/dev/null || echo "")
 
-          image_manifests=$(echo "$image_manifests" | jq -c --arg arch "$arch" '{($arch): .[$arch]}')
+            # Check if it's a container image manifest type
+            if echo "$media_type" | grep -qE "(application/vnd\.(docker|oci)\.(distribution|image)\.manifest|application/vnd\.docker\.distribution\.manifest)"; then
+              echo "Detected container image manifest type: $media_type, but get_image_manifests failed. This may indicate an error."
+              if [ -s /work/logs/artifact-meta.json ]; then
+                tmp=$(mktemp)
+                if jq '.artifact.mediaType = '"\"$media_type\""' | .artifact.type = "image"' /work/logs/artifact-meta.json > "$tmp"; then
+                  mv "$tmp" /work/logs/artifact-meta.json || true
+                fi
+              fi
+              note="Task $(context.task.name) failed: Failed to get image manifests from image \"$imageanddigest\". For details, check Tekton task log."
+              ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+              echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+              exit 0
+            else
+              # Likely an OCI artifact (non-image artifact)
+              echo "Detected OCI artifact (media type: ${media_type:-unknown}). Downloading for scanning..."
+              if [ -s /work/logs/artifact-meta.json ]; then
+                tmp=$(mktemp)
+                if jq '.artifact.mediaType = '"\"${media_type:-unknown}\""' | .artifact.type = "oci"' /work/logs/artifact-meta.json > "$tmp"; then
+                  mv "$tmp" /work/logs/artifact-meta.json || true
+                fi
+              fi
+              destination="content-oci"
+              mkdir -p "$destination"
+
+              # Download OCI artifact using skopeo copy
+              echo "Downloading OCI artifact using skopeo copy"
+              if ! retry skopeo copy --registry-config ~/.docker/config.json "docker://${imageanddigest}" "dir:${destination}" 2>&1; then
+                echo "Failed to download OCI artifact \"$imageanddigest\". Skipping ClamAV scan!"
+                note="Task $(context.task.name) failed: Failed to download OCI artifact \"$imageanddigest\". For details, check Tekton task log."
+                ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+                echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+                exit 0
+              fi
+
+              # Scan and process OCI artifact
+              scan_and_process "${destination}" "oci" "$IMAGE_DIGEST" "Scanning OCI artifact"
+
+              # Skip the container image processing path
+              image_manifests=""
+            fi
+          else
+            echo "Failed to inspect artifact \"$imageanddigest\". Unable to determine type."
+            note="Task $(context.task.name) failed: Failed to inspect artifact \"$imageanddigest\". For details, check Tekton task log."
+            ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+            echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+            exit 0
+          fi
         fi
 
+        # Process container images (existing logic)
         if [ -n "$image_manifests" ]; then
+          echo "Detected container image. Processing image manifests."
+          if [ -s /work/logs/artifact-meta.json ]; then
+            tmp=$(mktemp)
+            if jq '.artifact.type = "image"' /work/logs/artifact-meta.json > "$tmp"; then
+              mv "$tmp" /work/logs/artifact-meta.json || true
+            fi
+          fi
+          # Proceed only if a specific arch is provided.
+          # This typically occurs when using Tekton Matrix to launch multiple TaskRuns to scan all architectures of a multi-arch image in parallel.
+          if [ -n "$IMAGE_ARCH" ]; then
+            arch="${IMAGE_ARCH#*/}"
+            if [ "${arch}" = "x86_64" ]; then
+              arch="amd64"
+            fi
+
+            # Check if arch is supported; if not (e.g., it's 'local', see link below), default to amd64.
+            # https://github.com/redhat-appstudio/infra-deployments/blob/main/components/multi-platform-controller/production/stone-prd-rh01/host-config.yaml#L9-L14
+            case "$arch" in
+              amd64|ppc64le|arm64|s390x)
+                ;;
+              *)
+                arch="amd64"
+                ;;
+            esac
+
+            image_manifests=$(echo "$image_manifests" | jq -c --arg arch "$arch" '{($arch): .[$arch]}')
+          fi
+
           while read -r arch arch_sha; do
             destination=$(echo content-$arch)
             mkdir -p "$destination"
@@ -141,43 +259,9 @@ spec:
               exit 0
             fi
 
-            db_version=$(clamdscan --version | sed 's|.*/\(.*\)/.*|\1|')
-
-            echo "Scanning image for arch $arch. This operation may take a while."
-            clamdscan "${destination}" -vi --multiscan --fdpass \
-              | tee /work/logs/clamscan-result-$arch.log || true
-
-            echo "Executed-on: Scan was executed on clamsdcan version - $(clamdscan --version) Database version: $db_version" | tee -a "/work/logs/clamscan-result-$arch.log"
-
-            digests_processed+=("\"$arch_sha\"")
-
-            if [[ -e "/work/logs/clamscan-result-$arch.log" ]]; then
-              # file_suffix=$(basename "$file" | sed 's/clamscan-result-//;s/.log//')
-              # OPA/EC requires structured data input, add clamAV log into json
-              jq -Rs '{ output: . }' /work/logs/clamscan-result-$arch.log > /work/logs/clamscan-result-log-$arch.json
-
-              EC_EXPERIMENTAL=1 ec test \
-                --namespace required_checks \
-                --policy /project/clamav/virus-check.rego \
-                -o json \
-                /work/logs/clamscan-result-log-$arch.json || true
-
-              # workaround: due to a bug in ec-cli, we cannot generate json and appstudio output at the same time, running it again
-              EC_EXPERIMENTAL=1 ec test \
-                --namespace required_checks \
-                --policy /project/clamav/virus-check.rego \
-                -o appstudio \
-                /work/logs/clamscan-result-log-$arch.json | tee /work/logs/clamscan-ec-test-$arch.json || true
-
-              cat /work/logs/clamscan-ec-test-$arch.json
-            fi
+            # Scan and process container image for this architecture
+            scan_and_process "${destination}" "$arch" "$arch_sha" "Scanning image for arch $arch"
           done < <(echo "$image_manifests" | jq -r 'to_entries[] | "\(.key) \(.value)"')
-        else
-          echo "Failed to get image manifests from image \"$imageanddigest\""
-          note="Task $(context.task.name) failed: Failed to get image manifests from image \"$imageanddigest\". For details, check Tekton task log."
-          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
-          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
-          exit 0
         fi
 
         jq -s -rce '
