@@ -18,6 +18,13 @@ spec:
         - name: skip-upload
           value: "true"
           # skipped as the test image is read only.
+      computeResources:
+        limits:
+          memory: 8Gi
+          cpu: 2300m
+        requests:
+          memory: 2Gi
+          cpu: 500m
     - name: check-results
       runAfter:
         - run-clamav-scan
