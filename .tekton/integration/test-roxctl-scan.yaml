@@ -17,9 +17,9 @@ spec:
           resolver: git
           params:
             - name: url
-              value: https://github.com/jencull/konflux-test-tasks.git
+              value: https://github.com/konflux-ci/konflux-test-tasks.git
             - name: revision
-              value: STONEINTG-1417
+              value: main
             - name: pathInRepo
               value: task/roxctl-scan/0.1/roxctl-scan.yaml
         params:
