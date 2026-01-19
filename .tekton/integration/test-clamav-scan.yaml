@@ -1,0 +1,93 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: test-clamav-scan
+  labels:
+    appstudio.openshift.io/application: konflux-test-tasks
+    appstudio.openshift.io/component: clamav-scan-test
+spec:
+  pipelineSpec:
+    description: |
+      Verifies that the task scans the image and produces both TEST_OUTPUT and IMAGES_PROCESSED results.
+    results:
+      - name: TEST_OUTPUT
+        value: "$(tasks.check-results.results.TEST_OUTPUT)"
+    tasks:
+      - name: run-clamav-scan
+        taskRef:
+          resolver: git
+          params:
+            - name: url
+              value: https://github.com/jencull/konflux-test-tasks.git
+            - name: revision
+              value: STONEINTG-1452
+            - name: pathInRepo
+              value: task/clamav-scan/0.1/clamav-scan.yaml
+        params:
+          - name: image-url
+            value: "quay.io/konflux-ci/konflux-test:v1.4.28"
+          - name: image-digest
+            value: "sha256:4a5423e125fc28db800421422d9933290dc4b62a22401d74cd3348c03107a5d9"
+          - name: skip-upload
+            value: "true"
+      - name: check-results
+        runAfter:
+          - run-clamav-scan
+        params:
+          - name: TEST_OUTPUT
+            value: $(tasks.run-clamav-scan.results.TEST_OUTPUT)
+          - name: IMAGES_PROCESSED
+            value: $(tasks.run-clamav-scan.results.IMAGES_PROCESSED)
+        taskSpec:
+          params:
+            - name: TEST_OUTPUT
+            - name: IMAGES_PROCESSED
+          results:
+            - name: TEST_OUTPUT
+          steps:
+            - name: verify-outputs
+              image: quay.io/konflux-ci/konflux-test:v1.4.28@sha256:4a5423e125fc28db800421422d9933290dc4b62a22401d74cd3348c03107a5d9
+              env:
+                - name: TEST_OUTPUT
+                  value: $(params.TEST_OUTPUT)
+                - name: IMAGES_PROCESSED
+                  value: $(params.IMAGES_PROCESSED)
+              script: |
+                #!/bin/bash
+                set -euo pipefail
+
+                # Check for valid result status (SUCCESS or WARNING is acceptable)
+                echo "--- Checking TEST_OUTPUT ---"
+                echo "$TEST_OUTPUT" | jq .
+
+                if ! echo "$TEST_OUTPUT" | jq -e 'has("result")' > /dev/null; then
+                   echo "FAIL: TEST_OUTPUT missing 'result' field."
+                   exit 1
+                fi
+
+                RESULT=$(echo "$TEST_OUTPUT" | jq -r '.result')
+                if [[ "$RESULT" == "SUCCESS" || "$RESULT" == "WARNING" ]]; then
+                   echo "PASS: TEST_OUTPUT result is acceptable: $RESULT"
+                else
+                   echo "FAIL: TEST_OUTPUT result unexpected: $RESULT"
+                   exit 1
+                fi
+
+                # Check that the JSON contains the image pullspec
+                echo "--- Checking IMAGES_PROCESSED ---"
+                echo "$IMAGES_PROCESSED" | jq .
+
+                if echo "$IMAGES_PROCESSED" | jq -e '.image.pullspec != null' > /dev/null; then
+                   echo "PASS: IMAGES_PROCESSED contains pullspec."
+                else
+                   echo "FAIL: IMAGES_PROCESSED check failed. 'image.pullspec' missing."
+                   exit 1
+                fi
+
+                echo "All clamav-scan result validations passed"
+
+                echo -n "$TEST_OUTPUT" > "$(results.TEST_OUTPUT.path)"
+  timeouts:
+    pipeline: 1h0m0s
+    tasks: 45m0s
