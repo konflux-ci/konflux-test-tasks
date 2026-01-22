@@ -77,6 +77,8 @@ spec:
         . /utils.sh
         trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
 
+        echo "Hello! This is a test change."
+
         # Start clamd in background
         /start-clamd.sh
 
