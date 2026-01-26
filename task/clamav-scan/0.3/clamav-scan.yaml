@@ -152,7 +152,9 @@ spec:
 
         # Detect artifact type: container image vs OCI artifact
         # First, try to get image manifests (works for container images)
-        image_manifests=$(get_image_manifests -i "${imageanddigest}" 2>/dev/null || true)
+        # Use subshell to prevent get_image_manifests() from exiting the main script if it fails
+        # (get_image_manifests uses exit 1 when Architecture field is missing, which happens for OCI artifacts)
+        image_manifests=$(bash -c '. /utils.sh; get_image_manifests -i "'"${imageanddigest}"'"' 2>/dev/null || echo "")
 
         # If get_image_manifests failed, check if it's an OCI artifact by inspecting manifest media type
         if [ -z "$image_manifests" ]; then
