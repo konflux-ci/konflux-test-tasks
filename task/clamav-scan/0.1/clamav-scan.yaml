@@ -34,7 +34,7 @@ spec:
 
   steps:
     - name: extract-and-scan-image
-      image: quay.io/konflux-ci/konflux-test:v1.4.45@sha256:7948b501989694aef2dc4ef736174f56a00c5500109866fd3f63be0b664fcfa2
+      image: quay.io/konflux-ci/konflux-test:v1.4.46@sha256:c7e2099ad87d4c65284cba5df8488eae64d16ea0baff344c549ed7ca2415ebce
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       workingDir: /work
@@ -188,7 +188,7 @@ spec:
           subPath: ca-bundle.crt
           readOnly: true
     - name: upload
-      image: quay.io/konflux-ci/oras:latest@sha256:721da6e6f0e7a60d5d1fe7c32edba5471da21bed1bd8a7c999aed9a3a9b1e940
+      image: quay.io/konflux-ci/oras:latest@sha256:b281fef6ecf8b0322b061654dd5016c99090ce775d676afb06dad6d7399a7d3c
       computeResources:
         limits:
           memory: 512Mi
