@@ -1,0 +1,94 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: test-deprecated-image
+  labels:
+    appstudio.openshift.io/application: konflux-test-tasks
+    appstudio.openshift.io/component: deprecated-image-check-v05
+spec:
+  pipelineSpec:
+    description: |
+      Test the deprecated-image-check task by validating the expected results structure.
+    results:
+      - name: TEST_OUTPUT
+        value: "$(tasks.check-results.results.TEST_OUTPUT)"
+    tasks:
+      - name: deprecated-image-check
+        taskRef:
+          resolver: git
+          params:
+            - name: url
+              value: https://github.com/konflux-ci/konflux-test-tasks.git
+            - name: revision
+              value: main
+            - name: pathInRepo
+              value: task/deprecated-image-check/0.5/deprecated-image-check.yaml
+        params:
+          - name: IMAGE_URL
+            value: "quay.io/konflux-ci/konflux-test:v1.4.46"
+          - name: IMAGE_DIGEST
+            value: "sha256:c7e2099ad87d4c65284cba5df8488eae64d16ea0baff344c549ed7ca2415ebce"
+      - name: check-results
+        runAfter:
+          - deprecated-image-check
+        params:
+          - name: TEST_OUTPUT
+            value: $(tasks.deprecated-image-check.results.TEST_OUTPUT)
+          - name: IMAGES_PROCESSED
+            value: $(tasks.deprecated-image-check.results.IMAGES_PROCESSED)
+        taskSpec:
+          params:
+            - name: TEST_OUTPUT
+            - name: IMAGES_PROCESSED
+          results:
+            - name: TEST_OUTPUT
+          steps:
+            - name: validate-results
+              image: quay.io/konflux-ci/konflux-test:v1.4.46@sha256:c7e2099ad87d4c65284cba5df8488eae64d16ea0baff344c549ed7ca2415ebce
+              env:
+                - name: TEST_OUTPUT
+                  value: "$(params.TEST_OUTPUT)"
+                - name: IMAGES_PROCESSED
+                  value: "$(params.IMAGES_PROCESSED)"
+                - name: IMAGE_URL
+                  value: "quay.io/konflux-ci/konflux-test:v1.4.46"
+                - name: IMAGE_DIGEST
+                  value: "sha256:c7e2099ad87d4c65284cba5df8488eae64d16ea0baff344c549ed7ca2415ebce"
+              script: |
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                echo "--- Checking TEST_OUTPUT ---"
+                echo "$TEST_OUTPUT" | jq .
+
+                RESULT=$(echo "$TEST_OUTPUT" | jq -r '.result')
+
+                if [[ "$RESULT" == "ERROR" ]]; then
+                  echo "FAIL: Task returned ERROR - Pyxis API might be down or network issue"
+                  exit 1
+                fi
+
+                if [[ "$RESULT" == "WARNING" ]]; then
+                  echo "PASS: TEST_OUTPUT result is acceptable: $RESULT"
+                else
+                  echo "FAIL: TEST_OUTPUT result unexpected: $RESULT"
+                  exit 1
+                fi
+
+                echo "--- Checking IMAGES_PROCESSED ---"
+                echo "$IMAGES_PROCESSED" | jq .
+
+                if echo "$IMAGES_PROCESSED" | jq -e '.image.pullspec != null and .image.digests != null' > /dev/null; then
+                   echo "PASS: IMAGES_PROCESSED contains pullspec."
+                else
+                   echo "FAIL: IMAGES_PROCESSED check failed. 'image.pullspec' or 'image.digests' missing."
+                   exit 1
+                fi
+
+                echo "All deprecated-image-check result validations passed"
+
+                echo -n "$TEST_OUTPUT" > "$(results.TEST_OUTPUT.path)"
+  timeouts:
+    pipeline: 1h0m0s
+    tasks: 45m0s
