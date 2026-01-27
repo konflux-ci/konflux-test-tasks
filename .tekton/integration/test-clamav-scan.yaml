@@ -23,7 +23,7 @@ spec:
             - name: revision
               value: main
             - name: pathInRepo
-              value: task/clamav-scan/0.1/clamav-scan.yaml
+              value: task/clamav-scan/0.3/clamav-scan.yaml
         params:
           - name: image-url
             value: "quay.io/konflux-ci/konflux-test:v1.4.28"
