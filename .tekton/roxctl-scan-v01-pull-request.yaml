@@ -10,7 +10,7 @@ metadata:
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
       == "main" && ( "task/roxctl-scan/0.1/***".pathChanged() || ".tekton/roxctl-scan-v01-pull-request.yaml".pathChanged()
-      )
+      || ".tekton/integration/test-roxctl-scan.yaml".pathChanged() )
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: konflux-test-tasks
