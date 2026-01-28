@@ -159,7 +159,7 @@ spec:
         # If get_image_manifests failed, check if it's an OCI artifact by inspecting manifest media type
         if [ -z "$image_manifests" ]; then
           echo "get_image_manifests returned empty, checking if this is an OCI artifact..."
-          raw_manifest=$(skopeo inspect --raw --registry-config ~/.docker/config.json "docker://${imageanddigest}" 2>/dev/null || true)
+          raw_manifest=$(skopeo inspect --raw --authfile ~/.docker/config.json "docker://${imageanddigest}" 2>/dev/null || true)
           if [ -s /work/logs/artifact-meta.json ]; then
             tmp=$(mktemp)
             if jq '.artifact.type = "inspected"' /work/logs/artifact-meta.json > "$tmp"; then
@@ -197,7 +197,7 @@ spec:
 
               # Download OCI artifact using skopeo copy
               echo "Downloading OCI artifact using skopeo copy"
-              if ! retry skopeo copy --registry-config ~/.docker/config.json "docker://${imageanddigest}" "dir:${destination}" 2>&1; then
+              if ! retry skopeo copy --authfile ~/.docker/config.json "docker://${imageanddigest}" "dir:${destination}" 2>&1; then
                 echo "Failed to download OCI artifact \"$imageanddigest\". Skipping ClamAV scan!"
                 note="Task $(context.task.name) failed: Failed to download OCI artifact \"$imageanddigest\". For details, check Tekton task log."
                 ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
