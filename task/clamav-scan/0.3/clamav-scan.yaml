@@ -169,9 +169,54 @@ spec:
 
           if [ -n "$raw_manifest" ]; then
             media_type=$(echo "$raw_manifest" | jq -r '.mediaType // .config.mediaType // empty' 2>/dev/null || echo "")
+            artifact_type=$(echo "$raw_manifest" | jq -r '.artifactType // empty' 2>/dev/null || echo "")
+            config_media_type=$(echo "$raw_manifest" | jq -r '.config.mediaType // empty' 2>/dev/null || echo "")
 
-            # Check if it's a container image manifest type
-            if echo "$media_type" | grep -qE "(application/vnd\.(docker|oci)\.(distribution|image)\.manifest|application/vnd\.docker\.distribution\.manifest)"; then
+            # Determine if this is an OCI artifact (not a container image)
+            # OCI artifacts typically have:
+            # - An empty/scratch config (config.mediaType contains "empty" or "scratch")
+            # - An explicit artifactType field that is not a container image type
+            is_oci_artifact=false
+
+            # Check if config is empty/scratch (typical for OCI artifacts like python wheels, helm charts, etc.)
+            if echo "$config_media_type" | grep -qiE "(empty|scratch)"; then
+              is_oci_artifact=true
+            fi
+
+            # Check if artifactType is set and is not a container image type
+            if [ -n "$artifact_type" ] && ! echo "$artifact_type" | grep -qE "application/vnd\.(oci|docker)\.(image|container)"; then
+              is_oci_artifact=true
+            fi
+
+            if [ "$is_oci_artifact" = true ]; then
+              # This is an OCI artifact (e.g., python wheels, helm charts, etc.)
+              echo "Detected OCI artifact (artifactType: ${artifact_type:-unset}, config.mediaType: ${config_media_type:-unset}). Downloading for scanning..."
+              if [ -s /work/logs/artifact-meta.json ]; then
+                tmp=$(mktemp)
+                if jq '.artifact.mediaType = '"\"${media_type:-unknown}\""' | .artifact.artifactType = '"\"${artifact_type:-unknown}\""' | .artifact.type = "oci"' /work/logs/artifact-meta.json > "$tmp"; then
+                  mv "$tmp" /work/logs/artifact-meta.json || true
+                fi
+              fi
+              destination="content-oci"
+              mkdir -p "$destination"
+
+              # Download OCI artifact using skopeo copy
+              echo "Downloading OCI artifact using skopeo copy"
+              if ! retry skopeo copy --authfile ~/.docker/config.json "docker://${imageanddigest}" "dir:${destination}" 2>&1; then
+                echo "Failed to download OCI artifact \"$imageanddigest\". Skipping ClamAV scan!"
+                note="Task $(context.task.name) failed: Failed to download OCI artifact \"$imageanddigest\". For details, check Tekton task log."
+                ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+                echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+                exit 0
+              fi
+
+              # Scan and process OCI artifact
+              scan_and_process "${destination}" "oci" "$IMAGE_DIGEST" "Scanning OCI artifact"
+
+              # Skip the container image processing path
+              image_manifests=""
+            elif echo "$media_type" | grep -qE "(application/vnd\.(docker|oci)\.(distribution|image)\.manifest|application/vnd\.docker\.distribution\.manifest)"; then
+              # This looks like a container image manifest, but get_image_manifests failed
               echo "Detected container image manifest type: $media_type, but get_image_manifests failed. This may indicate an error."
               if [ -s /work/logs/artifact-meta.json ]; then
                 tmp=$(mktemp)
@@ -184,7 +229,7 @@ spec:
               echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
               exit 0
             else
-              # Likely an OCI artifact (non-image artifact)
+              # Likely an OCI artifact with non-standard media type
               echo "Detected OCI artifact (media type: ${media_type:-unknown}). Downloading for scanning..."
               if [ -s /work/logs/artifact-meta.json ]; then
                 tmp=$(mktemp)
