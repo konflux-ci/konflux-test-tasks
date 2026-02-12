@@ -37,10 +37,6 @@ spec:
         When set to "true", skip verifying the TLS certs of the Central endpoint.
       type: string
       default: "false"
-    - name: output_format
-      type: string
-      description: Results output format (json | csv | table)
-      default: json
     - name: rox_token_file
       description: |
         Path to the API Token file (if authentication through API token).
@@ -142,8 +138,6 @@ spec:
           value: $(params.image-url)
         - name: INSECURE
           value: $(params.insecure-skip-tls-verify)
-        - name: OUTPUT
-          value: $(params.output_format)
         - name: ROX_CONFIG_DIR
           value: $(params.rox_config_dir)
         - name: ROX_API_TOKEN_FILE
@@ -154,7 +148,7 @@ spec:
           value: Tekton
       script: |
         #!/usr/bin/env bash
-          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --output="$OUTPUT" --image="$IMAGE" | tee /tekton/home/rox-output.json
+          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --image="$IMAGE" | tee /tekton/home/rox-output.json
           if [ ! -s /tekton/home/rox-output.json ]; then
             echo "Failed to scan image using Roxctl"
             note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
