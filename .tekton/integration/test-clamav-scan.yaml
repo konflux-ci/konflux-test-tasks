@@ -9,11 +9,16 @@ metadata:
 spec:
   pipelineSpec:
     description: |
-      Verifies that the task scans the image and produces both TEST_OUTPUT and IMAGES_PROCESSED results.
+      Verifies that the clamav-scan task works correctly for both:
+      1. Regular container images - produces TEST_OUTPUT and IMAGES_PROCESSED results
+      2. OCI artifacts (e.g., Python wheels) - properly detects and scans non-container artifacts
     results:
       - name: TEST_OUTPUT
         value: "$(tasks.check-results.results.TEST_OUTPUT)"
     tasks:
+      # ===========================================
+      # Test 1: Regular container image scanning
+      # ===========================================
       - name: run-clamav-scan
         taskRef:
           resolver: git
@@ -57,6 +62,8 @@ spec:
                 #!/bin/bash
                 set -euo pipefail
 
+                echo "=== Validating container image scan results ==="
+
                 # Check for valid result status (SUCCESS or WARNING is acceptable)
                 echo "--- Checking TEST_OUTPUT ---"
                 echo "$TEST_OUTPUT" | jq .
@@ -85,9 +92,110 @@ spec:
                    exit 1
                 fi
 
-                echo "All clamav-scan result validations passed"
+                echo "=== All container image scan validations passed ==="
 
                 echo -n "$TEST_OUTPUT" > "$(results.TEST_OUTPUT.path)"
+
+      # ===========================================
+      # Test 2: OCI artifact scanning (Python wheels)
+      # ===========================================
+      - name: run-clamav-scan-oci-artifact
+        taskRef:
+          resolver: git
+          params:
+            - name: url
+              value: https://github.com/konflux-ci/konflux-test-tasks.git
+            - name: revision
+              value: main
+            - name: pathInRepo
+              value: task/clamav-scan/0.3/clamav-scan.yaml
+        params:
+          - name: image-url
+            value: "quay.io/konflux_integration/test-oci-artifact:python-wheels"
+          - name: image-digest
+            value: "sha256:aa76554ebd107f0fe07314a5ceab9768ac44ec547c0fc1484bb2f87bcc6cfb70"
+          - name: skip-upload
+            value: "true"
+      - name: check-oci-artifact-results
+        runAfter:
+          - run-clamav-scan-oci-artifact
+        params:
+          - name: TEST_OUTPUT
+            value: $(tasks.run-clamav-scan-oci-artifact.results.TEST_OUTPUT)
+          - name: IMAGES_PROCESSED
+            value: $(tasks.run-clamav-scan-oci-artifact.results.IMAGES_PROCESSED)
+        taskSpec:
+          params:
+            - name: TEST_OUTPUT
+            - name: IMAGES_PROCESSED
+          steps:
+            - name: verify-oci-artifact-outputs
+              image: quay.io/konflux-ci/konflux-test:v1.4.46@sha256:c7e2099ad87d4c65284cba5df8488eae64d16ea0baff344c549ed7ca2415ebce
+              env:
+                - name: TEST_OUTPUT
+                  value: $(params.TEST_OUTPUT)
+                - name: IMAGES_PROCESSED
+                  value: $(params.IMAGES_PROCESSED)
+                - name: EXPECTED_IMAGE_URL
+                  value: "quay.io/konflux_integration/test-oci-artifact:python-wheels"
+                - name: EXPECTED_DIGEST
+                  value: "sha256:aa76554ebd107f0fe07314a5ceab9768ac44ec547c0fc1484bb2f87bcc6cfb70"
+              script: |
+                #!/bin/bash
+                set -euo pipefail
+
+                echo "=== Validating OCI artifact (Python wheels) scan results ==="
+
+                # Check for valid result status (SUCCESS or WARNING is acceptable)
+                # ERROR would indicate the task failed to detect/handle the OCI artifact
+                echo "--- Checking TEST_OUTPUT ---"
+                echo "$TEST_OUTPUT" | jq .
+
+                if ! echo "$TEST_OUTPUT" | jq -e 'has("result")' > /dev/null; then
+                   echo "FAIL: TEST_OUTPUT missing 'result' field."
+                   exit 1
+                fi
+
+                RESULT=$(echo "$TEST_OUTPUT" | jq -r '.result')
+                if [[ "$RESULT" == "SUCCESS" || "$RESULT" == "WARNING" ]]; then
+                   echo "PASS: TEST_OUTPUT result is acceptable: $RESULT"
+                else
+                   echo "FAIL: TEST_OUTPUT result unexpected: $RESULT (expected SUCCESS or WARNING for OCI artifact)"
+                   echo "NOTE: If result is ERROR, this may indicate the OCI artifact detection logic failed."
+                   exit 1
+                fi
+
+                # Verify the note doesn't contain the old error message about failing to get image manifests
+                NOTE=$(echo "$TEST_OUTPUT" | jq -r '.note // ""')
+                if echo "$NOTE" | grep -qi "Failed to get image manifests"; then
+                   echo "FAIL: OCI artifact was incorrectly treated as a container image."
+                   echo "Note contains: $NOTE"
+                   exit 1
+                fi
+                echo "PASS: No 'Failed to get image manifests' error (OCI artifact properly detected)"
+
+                # Check that IMAGES_PROCESSED contains the artifact pullspec
+                echo "--- Checking IMAGES_PROCESSED ---"
+                echo "$IMAGES_PROCESSED" | jq .
+
+                if echo "$IMAGES_PROCESSED" | jq -e '.image.pullspec != null' > /dev/null; then
+                   echo "PASS: IMAGES_PROCESSED contains pullspec."
+                else
+                   echo "FAIL: IMAGES_PROCESSED check failed. 'image.pullspec' missing."
+                   exit 1
+                fi
+
+                # Verify the digest is in the processed list
+                if echo "$IMAGES_PROCESSED" | jq -e --arg digest "$EXPECTED_DIGEST" '.image.digests | index($digest) != null' > /dev/null; then
+                   echo "PASS: IMAGES_PROCESSED contains expected digest."
+                else
+                   echo "FAIL: Expected digest not found in IMAGES_PROCESSED."
+                   echo "Expected: $EXPECTED_DIGEST"
+                   echo "Got: $(echo "$IMAGES_PROCESSED" | jq '.image.digests')"
+                   exit 1
+                fi
+
+                echo "=== All OCI artifact scan validations passed ==="
   timeouts:
     pipeline: 1h0m0s
     tasks: 45m0s
