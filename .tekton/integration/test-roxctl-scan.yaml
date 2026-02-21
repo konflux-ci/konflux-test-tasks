@@ -51,7 +51,7 @@ spec:
             - name: TEST_OUTPUT
           steps:
             - name: validate-results
-              image: quay.io/konflux-ci/konflux-test:v1.4.46
+              image: quay.io/konflux-ci/konflux-test:v1.4.48
               env:
                 - name: TEST_OUTPUT
                   value: "$(params.TEST_OUTPUT)"
