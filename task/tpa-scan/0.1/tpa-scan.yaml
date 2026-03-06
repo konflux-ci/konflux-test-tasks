@@ -1,0 +1,355 @@
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/tags: "konflux"
+  name: tpa-scan
+spec:
+  description: >-
+    Scans container images for vulnerabilities using the TPA vulnerability scanner, by comparing the components of container image against the vulnerability databases.
+  params:
+    - name: image-digest
+      description: Image digest to scan.
+    - name: image-url
+      description: Image URL.
+    - name: image-platform
+      description: The platform which will be scanned by this task.
+      default: ""
+    - name: tpa-url
+      description: The url of the TPA instance which will be used for scanning.
+      default: "https://exhort.stage.devshift.net/api/v5/analysis"
+    - name: ca-trust-config-map-name
+      type: string
+      description: The name of the ConfigMap to read CA bundle data from.
+      default: trusted-ca
+    - name: ca-trust-config-map-key
+      type: string
+      description: The name of the key in the ConfigMap that contains the CA bundle data.
+      default: ca-bundle.crt
+    - name: skip-oci-attach-report
+      type: string
+      description: If true, skips uploading the results to the image registry. Useful for read-only tests.
+      default: "false"
+  results:
+    - name: TEST_OUTPUT
+      description: Tekton task test output.
+    - name: SCAN_OUTPUT
+      description: TPA scan result.
+    - name: IMAGES_PROCESSED
+      description: Images processed in the task.
+    - name: REPORTS
+      description: Mapping of image digests to report digests
+  stepTemplate:
+    volumeMounts:
+      - name: trusted-ca
+        mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
+        subPath: ca-bundle.crt
+        readOnly: true
+  steps:
+    - name: get-vulnerabilities
+      image: quay.io/konflux-ci/konflux-test:v1.4.48@sha256:9b815268fb2bf10b5d745518da1c6568944f15816efe51adc192972b42a6e74d
+      computeResources:
+        limits:
+          memory: 2Gi
+          cpu: 800m
+        requests:
+          memory: 2Gi
+          cpu: 800m
+      imagePullPolicy: Always
+      env:
+        - name: IMAGE_URL
+          value: $(params.image-url)
+        - name: IMAGE_DIGEST
+          value: $(params.image-digest)
+        - name: IMAGE_PLATFORM
+          value: $(params.image-platform)
+        - name: TPA_URL
+          value: $(params.tpa-url)
+      workingDir: /tekton/home
+      # language=bash
+      script: |
+        #!/usr/bin/env bash
+
+        set -o nounset
+        set -o pipefail
+        # shellcheck source=/utils.sh
+        . /utils.sh
+
+        trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
+
+        imagewithouttag=$(echo -n $IMAGE_URL | sed "s/\(.*\):.*/\1/")
+        # strip new-line escape symbol from parameter and save it to variable
+        imageanddigest=$(echo $imagewithouttag@$IMAGE_DIGEST)
+        images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
+        digests_processed=()
+
+        echo "Inspecting raw image manifest $imageanddigest."
+        # Get the arch and image manifests by inspecting the image. This is mainly for identifying image indexes
+        image_manifests=$(get_image_manifests -i "${imageanddigest}")
+        if [ -n "$image_manifests" ]; then
+          echo "$image_manifests" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while read -r arch arch_sha; do
+            echo "$arch_sha" > /tekton/home/image-manifest-$arch.sha
+          done
+        else
+          echo "Failed to get image manifests from image \"$imageanddigest\""
+          note="Task $(context.task.name) failed: Failed to get image manifests from image \"$imageanddigest\". For details, check Tekton task log."
+          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+          exit 0
+        fi
+
+
+        tpa_scan() {
+          local sbom_file=${1}
+          local arch=${2}
+          local sbom_format
+
+          sbom_format=$(jq -r 'if .bomFormat == "CycloneDX" then "cyclonedx" else "spdx" end' < "${sbom_file}")
+          retry curl -X POST -T "${sbom_file}" -H "Content-Type:application/vnd.${sbom_format}+json" "${TPA_URL}" | tee  "tpa-report-${arch}.json";
+        }
+
+        run_tpa_on_arch() {
+          local arch="$1"
+          local sha_file="image-manifest-${arch}.sha"
+          local sbom_file_path="/tmp/sbom-${arch}.json"
+          local arch_sha=""
+
+          if [ -e "${sha_file}" ]; then
+            arch_sha=$(<"${sha_file}")
+            arch_imageanddigest=$(echo -n "${imagewithouttag}@${arch_sha}")
+          else
+            echo "Couldn't find the SHA file for the requested architecture."
+            exit 1
+          fi
+
+          # Attempt to download the SBOM file via cosign
+
+          if ! retry cosign download sbom "${arch_imageanddigest}" > "${sbom_file_path}"; then
+            echo "Unable to download SBOM for the architecture ${arch}."
+            exit 1
+          fi
+
+          if [ -e "${sbom_file_path}" ]; then
+            local arch_sha
+            arch_sha=$(<"$sha_file")
+
+            echo "Running TPA scan on $arch image manifest..."
+            tpa_scan "${sbom_file_path}" "$arch" || true
+
+            digests_processed+=("\"$arch_sha\"")
+          else
+            echo "Couldn't find the SBOM file for the requested ${arch} architecture."
+            exit 1
+          fi
+        }
+
+        platform="${IMAGE_PLATFORM}"
+
+        # If a platform is specified, extract the architecture and run the tpa scan on the corresponding image manifest
+        if [ -n "$platform" ]; then
+          arch="${platform#*/}"
+          if [ "$arch" = "x86_64" ] || [ "$arch" = "local" ] || [ "$arch" = "localhost" ]; then
+            arch="amd64"
+          fi
+          # Validate against supported arch list. If it's not a known arch, fallback to amd64
+          case "$arch" in
+            amd64|ppc64le|arm64|s390x)
+              ;;
+            *)
+              echo "Error: Unsupported or malformed architecture: '$arch' (parsed from platform: '$platform')"
+              exit 1
+              ;;
+          esac
+
+          run_tpa_on_arch "$arch"
+
+        # If no platform is specified, run TPA scan on all available image manifests
+        else
+          for sha_file in image-manifest-*.sha; do
+            if [ -e "$sha_file" ]; then
+              arch=$(basename "$sha_file" | sed 's/image-manifest-//;s/.sha//')
+              run_tpa_on_arch "$arch"
+            fi
+          done
+        fi
+
+        # If the image is an Image Index, also add the Image Index digest to the list.
+        if [[ "${digests_processed[*]}" != *"$IMAGE_DIGEST"* ]]; then
+          digests_processed+=("\"$IMAGE_DIGEST\"")
+        fi
+        digests_processed_string=$(IFS=,; echo "${digests_processed[*]}")
+
+        images_processed=$(echo "${images_processed_template/\[%s]/[$digests_processed_string]}")
+        echo "$images_processed" > images-processed.json
+    - name: oci-attach-report
+      image: quay.io/konflux-ci/oras:latest@sha256:d126f98e16bfad71aab782eb212a5be701e2cde915d294a7bd6423a4ab448705
+      computeResources:
+        limits:
+          memory: 256Mi
+          cpu: 100m
+        requests:
+          memory: 256Mi
+          cpu: 100m
+      workingDir: /tekton/home
+      env:
+        - name: SKIP_OCI_ATTACH_REPORT
+          value: $(params.skip-oci-attach-report)
+        - name: IMAGE_URL
+          value: $(params.image-url)
+      # language=bash
+      script: |
+        #!/usr/bin/env bash
+
+        set -o errexit
+        set -o nounset
+        set -o pipefail
+
+        if [ "$SKIP_OCI_ATTACH_REPORT" = "true" ]; then
+          echo 'OCI attach report skipped by parameter.'
+          echo '{}' > reports.json
+          exit 0
+        fi
+
+        if ! compgen -G "tpa-report-*.json" > /dev/null; then
+          echo 'No TPA reports generated. Skipping upload.'
+          echo '{}' > reports.json
+          exit 0
+        fi
+
+        echo "Selecting auth"
+        select-oci-auth "$IMAGE_URL" > "$HOME/auth.json"
+
+        repository="${IMAGE_URL/:*/}"
+
+        arch() {
+          report_file="$1"
+          arch="${report_file/*-}"
+          echo "${arch/.json/}"
+        }
+
+        MEDIA_TYPE='application/vnd.redhat.tpa-report+json'
+
+        reports_json="{}"
+        for f in tpa-report-*.json; do
+          digest=$(cat "image-manifest-$(arch "$f").sha")
+          image_ref="${repository}@${digest}"
+          echo "Attaching $f to ${image_ref}"
+          if ! report_digest="$(retry oras attach --no-tty --format go-template='{{.digest}}' --registry-config \
+            "$HOME/auth.json" --artifact-type "${MEDIA_TYPE}" "${image_ref}" "$f:${MEDIA_TYPE}")"
+          then
+            echo "Failed to attach ${f} to ${image_ref}"
+            exit 1
+          fi
+          # shellcheck disable=SC2016
+          reports_json="$(yq --output-format json --indent=0 eval-all '. as $i ireduce ({}; . * $i)' <(echo "${reports_json}") <(echo "${digest}: ${report_digest}"))"
+        done
+        echo "${reports_json}" > reports.json
+    - name: conftest-vulnerabilities
+      # TODO: use the released version of the konflux-test image which contains the RHTPA policy
+      image: quay.io/redhat-user-workloads/rhtap-integration-tenant/konflux-test@sha256:59ea49964583bb87fa1f0cb3bfa8408d49e24a858a93fe00ce988d7d024e40dd
+      # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
+      # the cluster will set imagePullPolicy to IfNotPresent
+      computeResources:
+        limits:
+          memory: 256Mi
+          cpu: 100m
+        requests:
+          memory: 256Mi
+          cpu: 100m
+      securityContext:
+        capabilities:
+          add:
+            - SETFCAP
+      # language=bash
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        . /utils.sh
+        trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
+
+        tpa_result_files=$(ls /tekton/home/tpa-report-*.json 2>/dev/null || true)
+        if [ -z "$tpa_result_files" ]; then
+          echo "Previous step [get-vulnerabilities] failed: No tpa-report files found in /tekton/home."
+          exit 1
+        fi
+
+        missing_vulnerabilities_files=""
+        for file in $tpa_result_files; do
+          file_suffix=$(basename "$file" | sed 's/tpa-report-//;s/.json//')
+          if [ ! -s "$file" ]; then
+            echo "Previous step [get-vulnerabilities] failed: $file is empty."
+          else
+            /usr/bin/conftest test --no-fail $file \
+            --policy /project/rhtpa/vulnerabilities-check.rego --namespace required_checks \
+            --output=json | tee /tekton/home/tpa-vulnerabilities-"${file_suffix}".json || true
+          fi
+
+          #check for missing "tpa-vulnerabilities-<arch>/image-index" file and create a string
+          if [ ! -f "/tekton/home/tpa-vulnerabilities-$file_suffix.json" ]; then
+            missing_vulnerabilities_files+="${missing_vulnerabilities_files:+, }/tekton/home/tpa-vulnerabilities-$file_suffix.json"
+          fi
+        done
+
+        if [ -n "$missing_vulnerabilities_files" ]; then
+          note="Task $(context.task.name) failed: $missing_vulnerabilities_files did not generate. For details, check Tekton task log."
+          TEST_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+          echo "$missing_vulnerabilities_files did not generate correctly. For details, check conftest command in Tekton task log."
+          echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
+          exit 0
+        fi
+
+        scan_result='{"vulnerabilities":{"critical":0, "high":0, "medium":0, "low":0, "unknown":0}, "unpatched_vulnerabilities":{"critical":0, "high":0, "medium":0, "low":0, "unknown":0}}'
+        for file in /tekton/home/tpa-vulnerabilities-*.json; do
+            result=$(jq -rce \
+                '{
+                    vulnerabilities:{
+                      critical: (.[] | .warnings? // [] | map(select(.metadata.details.name=="rhtpa_critical_vulnerabilities").metadata."vulnerabilities_number" // 0)| add // 0),
+                      high: (.[] | .warnings? // [] | map(select(.metadata.details.name=="rhtpa_high_vulnerabilities").metadata."vulnerabilities_number" // 0)| add // 0),
+                      medium: (.[] | .warnings? // [] | map(select(.metadata.details.name=="rhtpa_medium_vulnerabilities").metadata."vulnerabilities_number" // 0)| add // 0),
+                      low: (.[] | .warnings? // [] | map(select(.metadata.details.name=="rhtpa_low_vulnerabilities").metadata."vulnerabilities_number" // 0)| add // 0),
+                      unknown: (.[] | .warnings? // [] | map(select(.metadata.details.name=="rhtpa_unknown_vulnerabilities").metadata."vulnerabilities_number" // 0)| add // 0)
+                    },
+                    unpatched_vulnerabilities:{
+                      critical: (.[] | .warnings? // [] | map(select(.metadata.details.name=="rhtpa_unpatched_critical_vulnerabilities").metadata."vulnerabilities_number" // 0)| add // 0),
+                      high: (.[] | .warnings? // [] | map(select(.metadata.details.name=="rhtpa_unpatched_high_vulnerabilities").metadata."vulnerabilities_number" // 0)| add // 0),
+                      medium: (.[] | .warnings? // [] | map(select(.metadata.details.name=="rhtpa_unpatched_medium_vulnerabilities").metadata."vulnerabilities_number" // 0)| add // 0),
+                      low: (.[] | .warnings? // [] | map(select(.metadata.details.name=="rhtpa_unpatched_low_vulnerabilities").metadata."vulnerabilities_number" // 0)| add // 0),
+                      unknown: (.[] | .warnings? // [] | map(select(.metadata.details.name=="rhtpa_unpatched_unknown_vulnerabilities").metadata."vulnerabilities_number" // 0)| add // 0)
+                    }
+                }' "$file")
+
+            scan_result=$(jq -s -rce \
+                  '.[0].vulnerabilities.critical += .[1].vulnerabilities.critical |
+                  .[0].vulnerabilities.high += .[1].vulnerabilities.high |
+                  .[0].vulnerabilities.medium += .[1].vulnerabilities.medium |
+                  .[0].vulnerabilities.low += .[1].vulnerabilities.low |
+                  .[0].vulnerabilities.unknown += .[1].vulnerabilities.unknown |
+                  .[0].unpatched_vulnerabilities.critical += .[1].unpatched_vulnerabilities.critical |
+                  .[0].unpatched_vulnerabilities.high += .[1].unpatched_vulnerabilities.high |
+                  .[0].unpatched_vulnerabilities.medium += .[1].unpatched_vulnerabilities.medium |
+                  .[0].unpatched_vulnerabilities.low += .[1].unpatched_vulnerabilities.low |
+                  .[0].unpatched_vulnerabilities.unknown += .[1].unpatched_vulnerabilities.unknown |
+                  .[0]' <<<"$scan_result $result")
+        done
+
+        echo "$scan_result" | tee "$(results.SCAN_OUTPUT.path)"
+
+        cat /tekton/home/images-processed.json | tee $(results.IMAGES_PROCESSED.path)
+        # shellcheck disable=SC2154
+        cat /tekton/home/reports.json > "$(results.REPORTS.path)"
+
+        note="Task $(context.task.name) completed: Refer to Tekton task result SCAN_OUTPUT for vulnerabilities scanned by TPA."
+        TEST_OUTPUT=$(make_result_json -r "SUCCESS" -t "$note")
+        echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
+  volumes:
+  - name: trusted-ca
+    configMap:
+      name: $(params.ca-trust-config-map-name)
+      items:
+        - key: $(params.ca-trust-config-map-key)
+          path: ca-bundle.crt
+      optional: true
