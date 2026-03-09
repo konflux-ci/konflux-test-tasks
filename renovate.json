@@ -20,7 +20,9 @@
     {
       "groupName": "integration",
       "matchFileNames": [
+        "task/clair-scan-min/**",
         "task/clair-scan/**",
+        "task/clamav-scan-min/**",
         "task/clamav-scan/**",
         "task/deprecated-image-check/**",
         "task/fetch-data-to-trusted-artifact/**",
