@@ -1,0 +1,24 @@
+- op: replace
+  path: /metadata/name
+  value: clair-scan-min
+# kustomize build task/clair-scan/0.3 | yq '.spec.steps.[].name' | nl -v 0
+#     0	get-image-manifests
+#     1	get-vulnerabilities
+#     2	oci-attach-report
+#     3	conftest-vulnerabilities
+#
+- op: test
+  path: /spec/steps/1/name
+  value: get-vulnerabilities
+- op: replace
+  path: /spec/steps/1/computeResources/limits/memory
+  value: 256Mi
+- op: replace
+  path: /spec/steps/1/computeResources/limits/cpu
+  value: 100m
+- op: replace
+  path: /spec/steps/1/computeResources/requests/memory
+  value: 256Mi
+- op: replace
+  path: /spec/steps/1/computeResources/requests/cpu
+  value: 100m
