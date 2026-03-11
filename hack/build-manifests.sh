@@ -1,5 +1,10 @@
 #!/bin/bash -e
 
+# <TEMPLATED FILE!>
+# This file comes from the templates at https://github.com/konflux-ci/task-repo-shared-ci.
+# Please consider sending a PR upstream instead of editing the file directly.
+# See the SHARED-CI.md document in this repo for more details.
+
 # To make the script work on linux and mac, use '${SED_CMD}' instead of 'sed'
 # https://stackoverflow.com/a/4247319
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -20,19 +25,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 # with the task name separated by a space, for example:
 # SKIP_TASKS="git-clone init"
 
-SKIP_TASKS="generate-odcs-compose provision-env-with-ephemeral-namespace verify-signed-rpms"
-
-# You can ignore building manifests for some pipelines by providing the SKIP_PIPELINES variable
-# with the task name separated by a space, for example:
-# SKIP_PIPELINES="rhtap gitops-pull-request-rhtap"
-
-SKIP_PIPELINES="gitops-pull-request-rhtap"
+SKIP_TASKS=
 
 warning_message="# WARNING: This is an auto generated file, do not modify this file directly"
 
 main() {
     cd "$SCRIPT_DIR/.."
-    ret=0
+    local ret=0
+    find task -maxdepth 3 -mindepth 3 -type f -name "*.yaml" | awk -F '/' '{ print $0, $2, $3, $4 }' | \
     while read -r task_path task_name task_version file_name
     do
         if [[ "$file_name" == "kustomization.yaml" ]]; then
@@ -40,7 +40,7 @@ main() {
         else
           continue
         fi
-        
+
         # Skip the tasks mentioned in SKIP_TASKS
         skipit=
         for tname in ${SKIP_TASKS};do
@@ -61,37 +61,7 @@ main() {
         fi
         # Add a warning message in the generated file
         ${SED_CMD} -i "1 i $warning_message" "task/$task_name/$task_version/$task_name.yaml"
-    done < <(find task/*/*/*.yaml -maxdepth 0 | awk -F '/' '{ print $0, $2, $3, $4 }')
-
-    while read -r pipeline_path pipeline_name file_name
-    do
-        if [[ "$file_name" == "kustomization.yaml" ]]; then
-          echo "Building pipeline manifest for: $pipeline_name"
-        else
-          continue
-        fi
-        
-        # Skip the pipelines mentioned in SKIP_PIPELINES
-        skipit=
-        for pname in ${SKIP_PIPELINES};do
-            [[ ${pname} == "${pipeline_name}" ]] && skipit=True
-        done
-        [[ -n ${skipit} ]] && continue
-        
-        # Check if there is only one resource in the kustomization file and it is <pipeline_name>.yaml
-        resources=$(yq -r '.resources[]' "$pipeline_path")
-        if [[ "$resources" == "$pipeline_name.yaml" ]]; then
-          echo "Skip generating manifest for the pipeline: $pipeline_name"
-          continue
-        fi
-        if ! oc kustomize -o "pipelines/$pipeline_name/$pipeline_name.yaml" "pipelines/$pipeline_name"; then
-            echo "failed to build pipeline: $pipeline_name" >&2
-            ret=1
-            continue
-        fi
-        # Add a warning message in the generated file
-        ${SED_CMD} -i "1 i $warning_message" "pipelines/$pipeline_name/$pipeline_name.yaml"
-    done <<< <(find find pipelines/*/*.yaml -maxdepth 0 | awk -F '/' '{ print $0, $2, $3 }')
+    done
 
     exit "$ret"
 
