@@ -62,8 +62,11 @@ spec:
       limits:
         memory: 10Gi
     timeout: 1h30m
-    script: $(params.executionScript)
-
+    env:
+      - name: EXECUTION_SCRIPT
+        value: $(params.executionScript)
+    script: |
+          eval "$EXECUTION_SCRIPT"
   - name: create-trusted-artifact
     image: quay.io/redhat-appstudio/build-trusted-artifacts:latest@sha256:9b180776a41d9a22a1c51539f1647c60defbbd55b44bbebdd4130e33512d8b0d
     computeResources:
