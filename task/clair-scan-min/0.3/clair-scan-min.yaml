@@ -6,7 +6,7 @@ metadata:
     tekton.dev/pipelines.minVersion: 0.12.1
     tekton.dev/tags: konflux
   labels:
-    app.kubernetes.io/version: "0.3"
+    app.kubernetes.io/version: 0.3.1
   name: clair-scan-min
 spec:
   description: Scans container images for vulnerabilities using Clair, by comparing
@@ -46,6 +46,9 @@ spec:
   - description: Mapping of image digests to report digests
     name: REPORTS
   stepTemplate:
+    env:
+    - name: RETRY_COUNT
+      value: "5"
     volumeMounts:
     - mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
       name: trusted-ca
@@ -64,7 +67,7 @@ spec:
       value: $(params.image-url)
     - name: IMAGE_DIGEST
       value: $(params.image-digest)
-    image: quay.io/konflux-ci/konflux-test:v1.4.49@sha256:74899c7a3dde27548e1ad9c665055bfef56c227251bd9224885f4bbd7addebd9
+    image: quay.io/konflux-ci/konflux-test:v1.4.51@sha256:169f73f80fbde8d54f42416c5de8cc9214ecc7e8c89c70a3385285bbac32ad0a
     name: get-image-manifests
     script: |
       #!/usr/bin/env bash
@@ -78,6 +81,8 @@ spec:
       echo "Inspecting raw image manifest $imageanddigest."
 
       # Get the arch and image manifests by inspecting the image. This is mainly for identifying image indexes
+      mkdir -p /tmp/auth && select-oci-auth "$IMAGE_URL" > /tmp/auth/config.json
+      export DOCKER_CONFIG=/tmp/auth
       image_manifests=$(get_image_manifests -i "${imageanddigest}")
       if [ -n "$image_manifests" ]; then
         echo "$image_manifests" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while read -r arch arch_sha; do
@@ -257,7 +262,7 @@ spec:
       requests:
         cpu: 100m
         memory: 256Mi
-    image: quay.io/konflux-ci/konflux-test:v1.4.49@sha256:74899c7a3dde27548e1ad9c665055bfef56c227251bd9224885f4bbd7addebd9
+    image: quay.io/konflux-ci/konflux-test:v1.4.51@sha256:169f73f80fbde8d54f42416c5de8cc9214ecc7e8c89c70a3385285bbac32ad0a
     name: conftest-vulnerabilities
     script: |
       #!/usr/bin/env bash
