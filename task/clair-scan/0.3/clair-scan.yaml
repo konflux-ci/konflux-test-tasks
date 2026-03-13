@@ -3,7 +3,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.3"
+    app.kubernetes.io/version: "0.3.1"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "konflux"
@@ -49,9 +49,12 @@ spec:
         mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
         subPath: ca-bundle.crt
         readOnly: true
+    env:
+      - name: RETRY_COUNT
+        value: "5"
   steps:
     - name: get-image-manifests
-      image: quay.io/konflux-ci/konflux-test:v1.4.49@sha256:74899c7a3dde27548e1ad9c665055bfef56c227251bd9224885f4bbd7addebd9
+      image: quay.io/konflux-ci/konflux-test:v1.4.51@sha256:169f73f80fbde8d54f42416c5de8cc9214ecc7e8c89c70a3385285bbac32ad0a
       # the clair-in-ci image neither has skopeo or jq installed. Hence, we create an extra step to get the image manifest digests
       computeResources:
         limits:
@@ -81,6 +84,8 @@ spec:
         echo "Inspecting raw image manifest $imageanddigest."
 
         # Get the arch and image manifests by inspecting the image. This is mainly for identifying image indexes
+        mkdir -p /tmp/auth && select-oci-auth "$IMAGE_URL" > /tmp/auth/config.json
+        export DOCKER_CONFIG=/tmp/auth
         image_manifests=$(get_image_manifests -i "${imageanddigest}")
         if [ -n "$image_manifests" ]; then
           echo "$image_manifests" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while read -r arch arch_sha; do
@@ -250,7 +255,7 @@ spec:
         done
         echo "${reports_json}" > reports.json
     - name: conftest-vulnerabilities
-      image: quay.io/konflux-ci/konflux-test:v1.4.49@sha256:74899c7a3dde27548e1ad9c665055bfef56c227251bd9224885f4bbd7addebd9
+      image: quay.io/konflux-ci/konflux-test:v1.4.51@sha256:169f73f80fbde8d54f42416c5de8cc9214ecc7e8c89c70a3385285bbac32ad0a
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       computeResources:
