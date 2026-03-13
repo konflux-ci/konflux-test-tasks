@@ -42,7 +42,7 @@ spec:
 
   steps:
     - name: check-images
-      image: quay.io/konflux-ci/konflux-test:v1.4.49@sha256:74899c7a3dde27548e1ad9c665055bfef56c227251bd9224885f4bbd7addebd9
+      image: quay.io/konflux-ci/konflux-test:v1.4.51@sha256:169f73f80fbde8d54f42416c5de8cc9214ecc7e8c89c70a3385285bbac32ad0a
       computeResources:
         limits:
           memory: 256Mi
@@ -90,6 +90,10 @@ spec:
           while read -r arch arch_sha; do
             SBOM_FILE_PATH=$(echo "/tmp/sbom-$arch.json")
             arch_imageanddigest=$(echo $imagewithouttag@$arch_sha)
+
+            # Pre-select the correct credentials to work around cosign not supporting the containers-auth.json spec
+            mkdir -p /tmp/auth && select-oci-auth "${arch_imageanddigest}" >/tmp/auth/config.json
+            export DOCKER_CONFIG=/tmp/auth
 
             # Get base images from SBOM
             cosign download sbom $arch_imageanddigest > ${SBOM_FILE_PATH}
