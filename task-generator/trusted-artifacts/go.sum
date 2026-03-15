@@ -268,8 +268,8 @@ k8s.io/kube-openapi v0.0.0-20260304202019-5b3e3fdb0acf h1:btPscg4cMql0XdYK2jLsJc
 k8s.io/kube-openapi v0.0.0-20260304202019-5b3e3fdb0acf/go.mod h1:kdmbQkyfwUagLfXIad1y2TdrjPFWp2Q89B3qkRwf/pQ=
 k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 h1:AZYQSJemyQB5eRxqcPky+/7EdBj0xi3g0ZcxxJ7vbWU=
 k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2/go.mod h1:xDxuJ0whA3d0I4mf/C4ppKHxXynQ+fxnkmQH0vTHnuk=
-knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a h1:9f29OTA7w/iVIX6PS6yveVVzNbcUS74eQfchVe8o2/4=
-knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a/go.mod h1:Tz3GoxcNC5vH3Zo//cW3mnHL474u+Y1wbsUIZ11p8No=
+knative.dev/pkg v0.0.0-20260314220421-b3fe2e572de3 h1:+Lf0Ey1i+RfFQqcQqgE06mZH1oEGDRnYCjmLvZlkCT8=
+knative.dev/pkg v0.0.0-20260314220421-b3fe2e572de3/go.mod h1:DKf80HbmuintxxLmzOCxUDgfNS7hz/UHJQTmKmg2qL8=
 mvdan.cc/sh/v3 v3.12.0 h1:ejKUR7ONP5bb+UGHGEG/k9V5+pRVIyD+LsZz7o8KHrI=
 mvdan.cc/sh/v3 v3.12.0/go.mod h1:Se6Cj17eYSn+sNooLZiEUnNNmNxg0imoYlTu4CyaGyg=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=
