@@ -16,3 +16,9 @@ If that's not something you ever plan to do, consider removing this section.
 ### Added
 
 - Started tracking changes in this file.
+
+## 0.3.2
+
+### Added
+
+- set docker-config-dir in clair-action report command

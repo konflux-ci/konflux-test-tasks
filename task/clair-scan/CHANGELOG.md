@@ -17,3 +17,9 @@ If that's not something you ever plan to do, consider removing this section.
 
 - Declare DOCKER_CONFIG to get get credential to quay.io.
 - Increase retry to 5
+
+## 0.3.2
+
+### Added
+
+- set docker-config-dir in clair-action report command
