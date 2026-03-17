@@ -6,7 +6,7 @@ metadata:
     tekton.dev/pipelines.minVersion: 0.12.1
     tekton.dev/tags: konflux
   labels:
-    app.kubernetes.io/version: 0.3.1
+    app.kubernetes.io/version: 0.3.2
   name: clair-scan-min
 spec:
   description: Scans container images for vulnerabilities using Clair, by comparing
@@ -125,6 +125,9 @@ spec:
       # shellcheck source=/utils.sh
       . /utils.sh
 
+      mkdir -p /tmp/auth && select-oci-auth "$IMAGE_URL" > /tmp/auth/config.json
+      export DOCKER_CONFIG=/tmp/auth
+
       imagewithouttag=$(echo -n $IMAGE_URL | sed "s/\(.*\):.*/\1/")
       images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
       digests_processed=()
@@ -134,7 +137,7 @@ spec:
       # we require in the policy rules, so we resort to running clair-action
       # twice to produce both quay and clair formatted output
       clair_report() {
-        { retry clair-action report --image-ref="$1" --db-path=/tmp/matcher.db --format=clair | tee  "clair-report-$2.json"; } && \
+        { retry clair-action report --image-ref="$1" --db-path=/tmp/matcher.db --docker-config-dir=/tmp/auth --format=clair | tee  "clair-report-$2.json"; } && \
         { retry clair-action convert  --file-path="clair-report-$2.json" --format=quay > "clair-result-$2.json"; }
       }
 

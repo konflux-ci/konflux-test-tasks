@@ -29,9 +29,9 @@ spec:
           - name: skip-oci-attach-report
             value: "true"
           - name: image-url
-            value: "quay.io/konflux-ci/konflux-test:v1.4.39"
+            value: "quay.io/konflux-ci/konflux-test:v1.4.51"
           - name: image-digest
-            value: "sha256:89cdc9d251e15d07018548137b4034669df8e9e2b171a188c8b8201d3638cb17"
+            value: "sha256:169f73f80fbde8d54f42416c5de8cc9214ecc7e8c89c70a3385285bbac32ad0a"
       - name: check-results
         runAfter:
           - clair-scan
@@ -55,7 +55,7 @@ spec:
               description: Test result output
           steps:
             - name: validate-results
-              image: quay.io/konflux-ci/konflux-test:v1.4.48@sha256:9b815268fb2bf10b5d745518da1c6568944f15816efe51adc192972b42a6e74d
+              image: quay.io/konflux-ci/konflux-test:v1.4.51@sha256:169f73f80fbde8d54f42416c5de8cc9214ecc7e8c89c70a3385285bbac32ad0a
               env:
                 - name: TEST_OUTPUT
                   value: "$(params.TEST_OUTPUT)"
@@ -66,9 +66,9 @@ spec:
                 - name: REPORTS
                   value: "$(params.REPORTS)"
                 - name: IMAGE_URL
-                  value: "quay.io/konflux-ci/konflux-test:v1.4.39"
+                  value: "quay.io/konflux-ci/konflux-test:v1.4.51"
                 - name: IMAGE_DIGEST
-                  value: "sha256:89cdc9d251e15d07018548137b4034669df8e9e2b171a188c8b8201d3638cb17"
+                  value: "sha256:169f73f80fbde8d54f42416c5de8cc9214ecc7e8c89c70a3385285bbac32ad0a"
               script: |
                 #!/usr/bin/env bash
                 set -euo pipefail
