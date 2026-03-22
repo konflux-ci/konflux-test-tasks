@@ -32,7 +32,6 @@ warning_message="# WARNING: This is an auto generated file, do not modify this f
 main() {
     cd "$SCRIPT_DIR/.."
     local ret=0
-    find task -maxdepth 3 -mindepth 3 -type f -name "*.yaml" | awk -F '/' '{ print $0, $2, $3, $4 }' | \
     while read -r task_path task_name task_version file_name
     do
         if [[ "$file_name" == "kustomization.yaml" ]]; then
@@ -61,7 +60,7 @@ main() {
         fi
         # Add a warning message in the generated file
         ${SED_CMD} -i "1 i $warning_message" "task/$task_name/$task_version/$task_name.yaml"
-    done
+    done < <(find task -maxdepth 3 -mindepth 3 -type f -name "*.yaml" | awk -F '/' '{ print $0, $2, $3, $4 }')
 
     exit "$ret"
 
