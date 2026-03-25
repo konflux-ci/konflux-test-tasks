@@ -9,13 +9,13 @@
   value: extract-and-scan-image
 - op: replace
   path: /spec/steps/0/computeResources/limits/memory
-  value: 1540Mi
+  value: 2Gi
 - op: replace
   path: /spec/steps/0/computeResources/limits/cpu
   value: 512m
 - op: replace
   path: /spec/steps/0/computeResources/requests/memory
-  value: 1540Mi
+  value: 2Gi
 - op: replace
   path: /spec/steps/0/computeResources/requests/cpu
   value: 512m
