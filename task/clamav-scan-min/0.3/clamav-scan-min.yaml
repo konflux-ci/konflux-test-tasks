@@ -47,10 +47,10 @@ spec:
   - computeResources:
       limits:
         cpu: 512m
-        memory: 2Gi
+        memory: 3Gi
       requests:
         cpu: 512m
-        memory: 2Gi
+        memory: 3Gi
     env:
     - name: HOME
       value: /work
