@@ -12,13 +12,13 @@
   value: get-vulnerabilities
 - op: replace
   path: /spec/steps/1/computeResources/limits/memory
-  value: 256Mi
+  value: 512Mi
 - op: replace
   path: /spec/steps/1/computeResources/limits/cpu
   value: 100m
 - op: replace
   path: /spec/steps/1/computeResources/requests/memory
-  value: 256Mi
+  value: 512Mi
 - op: replace
   path: /spec/steps/1/computeResources/requests/cpu
   value: 100m
