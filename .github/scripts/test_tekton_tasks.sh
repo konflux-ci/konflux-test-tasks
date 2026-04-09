@@ -16,12 +16,12 @@ set -e
 # - tkn installed
 #
 # Examples of usage:
-# export TEST_ITEMS="task/git-clone/0.1 some/other/dir"
+# export TEST_ITEMS="task/git-clone/0.1 task/hello"
 # ./test_tekton_tasks.sh
 #
 # or
 #
-# ./test_tekton_tasks.sh task/git-clone/0.1 some/other/dir
+# ./test_tekton_tasks.sh task/git-clone/0.1 task/hello task/greet/subdir/deep
 
 # Define a custom kubectl path if you like
 KUBECTL_CMD=${KUBECTL_CMD:-kubectl}
@@ -39,7 +39,7 @@ Usage:
 
 $0 [item1] [item2] [...]
 
-Example: ./.github/scripts/test_tekton_tasks.sh task/git-clone/0.1
+Example: ./.github/scripts/test_tekton_tasks.sh task/git-clone/0.1 task/hello
 
 or
 
@@ -47,7 +47,7 @@ export TEST_ITEMS="item1 item2 ..."
 
 $0
 
-Items can be task directories including version or paths to task test yaml files (useful when working on a single test)
+Items can be task directories (e.g., task/hello, task/git-clone/0.1) or paths to task test yaml files (useful when working on a single test)
 EOF
   exit 1
 fi
@@ -73,24 +73,33 @@ done
 
 for ITEM in "${TEST_ITEMS[@]}"; do
   echo "Test item: $ITEM"
-  TASK_DIR=$(echo "$ITEM" | cut -d '/' -f -3)
   TASK_NAME=$(echo "$ITEM" | cut -d '/' -f 2)
-  TASK_VERSION=$(echo "$ITEM" | cut -d '/' -f 3)
   echo "DEBUG: Task name: $TASK_NAME"
-  echo "DEBUG: Task version: $TASK_VERSION"
 
-  TASK_VERSION_WITH_HYPHEN="$(echo "$TASK_VERSION" | tr '.' '-')"
-  TEST_NS="${TASK_NAME}-${TASK_VERSION_WITH_HYPHEN}"
+  if [[ "$ITEM" == *tests/test-*.yaml ]]; then
+    TESTS_DIR=$(dirname "$ITEM")
+    TASK_DIR=$(dirname "$TESTS_DIR")
+  else
+    TASK_DIR="$ITEM"
+    TESTS_DIR="${TASK_DIR}/tests"
+  fi
 
-  TASK_PATH=${TASK_DIR}/${TASK_NAME}.yaml
-  # check if task file exists or not
+  TASK_PATH="${TASK_DIR}/${TASK_NAME}.yaml"
   if [ ! -f "$TASK_PATH" ]; then
     echo "ERROR: Task file does not exist: $TASK_PATH"
     exit 1
   fi
 
-  # Check if tests dir exists under task dir
-  TESTS_DIR=${TASK_DIR}/tests
+  TASK_VERSION=$(yq '.metadata.labels["app.kubernetes.io/version"]' "$TASK_PATH")
+  if [[ -z "$TASK_VERSION" || "$TASK_VERSION" == "null" ]]; then
+    echo "WARNING: Task has no version label, using 'unknown' for namespace"
+    TASK_VERSION="unknown"
+  fi
+  echo "DEBUG: Task version: $TASK_VERSION"
+
+  TASK_VERSION_WITH_HYPHEN="$(echo "$TASK_VERSION" | tr '.' '-')"
+  TEST_NS="${TASK_NAME}-${TASK_VERSION_WITH_HYPHEN}"
+
   if [ ! -d "$TESTS_DIR" ]; then
     echo "ERROR: tests dir does not exist: $TESTS_DIR"
     exit 1
