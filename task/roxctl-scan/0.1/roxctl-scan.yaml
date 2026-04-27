@@ -17,7 +17,7 @@ spec:
       default: ""
     - name: rox_image
       description: Image providing the roxctl tool.
-      default: 'registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel8@sha256:d6d5e50d1deda1e7b232d4e3f60fda6f3d27266b6fc007c8ec48a324e1c6c15c'
+      default: 'registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel8@sha256:dd71ef9edb6d5cdc1ff0ff95f9609d5ba36a9ec2e0b7dbcf5440dfec90213cbc'
     - name: rox_central_endpoint
       description: The address:port tuple for RHACS Stackrox Central.
       type: string
@@ -154,7 +154,7 @@ spec:
           value: Tekton
       script: |
         #!/usr/bin/env bash
-          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --output="$OUTPUT" --image="$IMAGE" | tee /tekton/home/rox-output.json
+          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --image="$IMAGE" > /tekton/home/rox-output.json || true
           if [ ! -s /tekton/home/rox-output.json ]; then
             echo "Failed to scan image using Roxctl"
             note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
@@ -163,7 +163,7 @@ spec:
             exit 0
           fi
     - name: proccess-output
-      image: quay.io/konflux-ci/konflux-test:v1.4.52@sha256:deabe80a01dca3a8a0edb709324e30cbf0baa176f7a181bbb695323f506f7aac
+      image: quay.io/konflux-ci/konflux-test:v1.4.53@sha256:724ecf16a1fc9b51a1b20c91c5125556c53d471d0d8db1648d2404e4715f204e
       env:
         - name: IMAGE_URL
           value: $(params.image-url)
@@ -178,6 +178,9 @@ spec:
         set -o pipefail
         # shellcheck source=/utils.sh
         . /utils.sh
+
+        # parse verbose output from previous step, log from scan is not displayed, only parsed one is.
+        parse_acs_output /tekton/home/rox-output.json
 
         images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
         digests_processed=()
