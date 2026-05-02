@@ -72,12 +72,12 @@ spec:
     script: |
       #!/usr/bin/env bash
       set -euo pipefail
-      # shellcheck source=/dev/null
+      # shellcheck disable=SC1091 # /utils.sh is only available in the container image at runtime
       . /utils.sh
 
-      imagewithouttag=$(echo -n $IMAGE_URL | sed "s/\(.*\):.*/\1/")
+      imagewithouttag=$(echo -n "$IMAGE_URL" | sed "s/\(.*\):.*/\1/")
       # strip new-line escape symbol from parameter and save it to variable
-      imageanddigest=$(echo $imagewithouttag@$IMAGE_DIGEST)
+      imageanddigest="${imagewithouttag}@${IMAGE_DIGEST}"
       echo "Inspecting raw image manifest $imageanddigest."
 
       # Get the arch and image manifests by inspecting the image. This is mainly for identifying image indexes
@@ -86,7 +86,7 @@ spec:
       image_manifests=$(get_image_manifests -i "${imageanddigest}")
       if [ -n "$image_manifests" ]; then
         echo "$image_manifests" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while read -r arch arch_sha; do
-          echo "$arch_sha" > /tekton/home/image-manifest-$arch.sha
+          echo "$arch_sha" > "/tekton/home/image-manifest-${arch}.sha"
         done
       else
         echo "Failed to get image manifests from image \"$imageanddigest\""
@@ -122,13 +122,13 @@ spec:
       set -o errexit
       set -o nounset
       set -o pipefail
-      # shellcheck source=/utils.sh
+      # shellcheck disable=SC1091 # /utils.sh is only available in the container image at runtime
       . /utils.sh
 
       mkdir -p /tmp/auth && select-oci-auth "$IMAGE_URL" > /tmp/auth/config.json
       export DOCKER_CONFIG=/tmp/auth
 
-      imagewithouttag=$(echo -n $IMAGE_URL | sed "s/\(.*\):.*/\1/")
+      imagewithouttag=$(echo -n "$IMAGE_URL" | sed "s/\(.*\):.*/\1/")
       images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
       digests_processed=()
 
@@ -193,7 +193,7 @@ spec:
       fi
       digests_processed_string=$(IFS=,; echo "${digests_processed[*]}")
 
-      images_processed=$(echo "${images_processed_template/\[%s]/[$digests_processed_string]}")
+      images_processed="${images_processed_template/\[%s]/[$digests_processed_string]}"
       echo "$images_processed" > images-processed.json
     workingDir: /tekton/home
   - computeResources:
@@ -272,6 +272,7 @@ spec:
     script: |
       #!/usr/bin/env bash
       set -euo pipefail
+      # shellcheck disable=SC1091 # /utils.sh is only available in the container image at runtime
       . /utils.sh
       trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
 
@@ -286,9 +287,9 @@ spec:
         if [ ! -s "$file" ]; then
           echo "Previous step [get-vulnerabilities] failed: $file is empty."
         else
-          /usr/bin/conftest test --no-fail $file \
+          /usr/bin/conftest test --no-fail "$file" \
           --policy /project/clair/vulnerabilities-check.rego --namespace required_checks \
-          --output=json | tee /tekton/home/clair-vulnerabilities-$file_suffix.json || true
+          --output=json | tee "/tekton/home/clair-vulnerabilities-${file_suffix}.json" || true
         fi
 
         #check for missing "clair-vulnerabilities-<arch>/image-index" file and create a string
@@ -301,7 +302,7 @@ spec:
         note="Task $(context.task.name) failed: $missing_vulnerabilities_files did not generate. For details, check Tekton task log."
         TEST_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
         echo "$missing_vulnerabilities_files did not generate correctly. For details, check conftest command in Tekton task log."
-        echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
+        echo "${TEST_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
         exit 0
       fi
 
@@ -341,13 +342,13 @@ spec:
 
       echo "$scan_result" | tee "$(results.SCAN_OUTPUT.path)"
 
-      cat /tekton/home/images-processed.json | tee $(results.IMAGES_PROCESSED.path)
+      tee "$(results.IMAGES_PROCESSED.path)" < /tekton/home/images-processed.json
       # shellcheck disable=SC2154
       cat /tekton/home/reports.json > "$(results.REPORTS.path)"
 
       note="Task $(context.task.name) completed: Refer to Tekton task result SCAN_OUTPUT for vulnerabilities scanned by Clair."
       TEST_OUTPUT=$(make_result_json -r "SUCCESS" -t "$note")
-      echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
+      echo "${TEST_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
     securityContext:
       capabilities:
         add:
