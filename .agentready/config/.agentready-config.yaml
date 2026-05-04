@@ -1,0 +1,14 @@
+excluded_attributes:
+  - standard_layout
+  - lock_files
+  - dbt_project_config
+  - dbt_model_documentation
+  - test_coverage
+  - one_command_setup
+  - dbt_data_tests
+  - dbt_project_structure
+  - architecture_decisions
+  - structured_logging
+  - openapi_specs
+  - container_setup
+  - code_smells
