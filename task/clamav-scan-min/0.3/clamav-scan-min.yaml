@@ -67,6 +67,7 @@ spec:
     script: |
       #!/usr/bin/env bash
       set -euo pipefail
+      # shellcheck disable=SC1091 # /utils.sh is only available in the container image at runtime
       . /utils.sh
       trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
 
@@ -80,10 +81,10 @@ spec:
           echo '{}' > ~/.docker/config.json
       fi
 
-      imagewithouttag=$(echo $IMAGE_URL | sed "s/\(.*\):.*/\1/" | tr -d '\n')
+      imagewithouttag=$(echo "$IMAGE_URL" | sed "s/\(.*\):.*/\1/" | tr -d '\n')
 
       # strip new-line escape symbol from parameter and save it to variable
-      imageanddigest=$(echo $imagewithouttag@$IMAGE_DIGEST)
+      imageanddigest="${imagewithouttag}@${IMAGE_DIGEST}"
 
       # check if image is attestation one, skip the clamav scan in such case
       if [[ $imageanddigest == *.att ]]
@@ -289,13 +290,12 @@ spec:
         fi
 
         while read -r arch arch_sha; do
-          destination=$(echo content-$arch)
+          destination="content-${arch}"
           mkdir -p "$destination"
-          arch_imageanddigest=$(echo $imagewithouttag@$arch_sha)
+          arch_imageanddigest="${imagewithouttag}@${arch_sha}"
 
           echo "Running \"oc image extract\" on image of arch $arch"
-          retry oc image extract --confirm --only-files=true --registry-config ~/.docker/config.json "$arch_imageanddigest" --path="/:${destination}" --filter-by-os="linux/${arch}"
-          if [ $? -ne 0 ]; then
+          if ! retry oc image extract --confirm --only-files=true --registry-config ~/.docker/config.json "$arch_imageanddigest" --path="/:${destination}" --filter-by-os="linux/${arch}"; then
             echo "Unable to extract image for arch $arch. Skipping ClamAV scan!"
             exit 0
           fi
@@ -315,7 +315,7 @@ spec:
           "warnings" : (.warnings + $item.warnings),
           "result" : (if .result == "" or ($item.result == "SKIPPED" and .result == "SUCCESS") or ($item.result == "WARNING" and (.result == "SUCCESS" or .result == "SKIPPED")) or ($item.result == "FAILURE" and .result != "ERROR") or $item.result == "ERROR" then $item.result else .result end),
           "note" : (if .result == "" or ($item.result == "SKIPPED" and .result == "SUCCESS") or ($item.result == "WARNING" and (.result == "SUCCESS" or .result == "SKIPPED")) or ($item.result == "FAILURE" and .result != "ERROR") or $item.result == "ERROR" then $item.note else .note end)
-          })' /work/logs/clamscan-ec-test-*.json | tee $(results.TEST_OUTPUT.path)
+          })' /work/logs/clamscan-ec-test-*.json | tee "$(results.TEST_OUTPUT.path)"
 
       # If the image is an Image Index, also add the Image Index digest to the list.
       if [[ "${digests_processed[*]}" != *"$IMAGE_DIGEST"* ]]; then
@@ -323,7 +323,7 @@ spec:
       fi
 
       digests_processed_string=$(IFS=,; echo "${digests_processed[*]}")
-      echo "${images_processed_template/\[%s]/[$digests_processed_string]}" | tee $(results.IMAGES_PROCESSED.path)
+      echo "${images_processed_template/\[%s]/[$digests_processed_string]}" | tee "$(results.IMAGES_PROCESSED.path)"
     securityContext:
       capabilities:
         add:
@@ -376,13 +376,13 @@ spec:
         args+=("${UPLOAD_FILE}:${MEDIA_TYPE}")
       done
 
-      if [ -z "${args}" ]; then
+      if [ ${#args[@]} -eq 0 ]; then
         echo "No files found. Skipping upload."
         exit 0;
       fi
 
       echo "Selecting auth"
-      select-oci-auth $IMAGE_URL > $HOME/auth.json
+      select-oci-auth "$IMAGE_URL" > "$HOME/auth.json"
       echo "Attaching to ${IMAGE_URL}"
        retry oras attach --no-tty --registry-config "$HOME/auth.json" --artifact-type application/vnd.clamav "${IMAGE_URL}@${IMAGE_DIGEST}" "${args[@]}"
     volumeMounts:
