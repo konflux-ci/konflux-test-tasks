@@ -11,3 +11,4 @@ excluded_attributes:
   - structured_logging
   - openapi_specs
   - container_setup
+  - branch_protection
