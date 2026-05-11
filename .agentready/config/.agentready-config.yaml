@@ -12,3 +12,4 @@ excluded_attributes:
   - openapi_specs
   - container_setup
   - code_smells
+  - branch_protection
