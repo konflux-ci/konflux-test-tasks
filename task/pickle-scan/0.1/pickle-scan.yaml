@@ -1,0 +1,238 @@
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/tags: "pickle, security, konflux"
+  name: pickle-scan
+spec:
+  description: >-
+    Scans OCI artifacts and AI model files for malicious pickle files
+    using picklescan. Pickle files are commonly used for Python/ML model
+    serialization and can contain arbitrary code execution payloads.
+  params:
+    - name: image-url
+      description: Image URL.
+    - name: image-digest
+      description: Image digest to scan.
+    - name: ca-trust-config-map-name
+      type: string
+      description: The name of the ConfigMap to read CA bundle data from.
+      default: trusted-ca
+    - name: ca-trust-config-map-key
+      type: string
+      description: The name of the key in the ConfigMap that contains the CA bundle data.
+      default: ca-bundle.crt
+    - name: skip-oci-attach-report
+      type: string
+      description: If true, skips uploading the results to the image registry. Useful for read-only tests.
+      default: "false"
+  results:
+    - name: TEST_OUTPUT
+      description: Tekton task test output.
+    - name: SCAN_OUTPUT
+      description: Pickle scan result.
+    - name: IMAGES_PROCESSED
+      description: Images processed in the task.
+  workspaces:
+    - name: source
+      description: Directory containing model files to scan for malicious pickle content.
+  stepTemplate:
+    volumeMounts:
+      - name: trusted-ca
+        mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
+        subPath: ca-bundle.crt
+        readOnly: true
+  steps:
+    - name: pickle-scan
+      image: quay.io/konflux-ci/konflux-test:v1.5.1@sha256:e6b090c515168c8ed0fa932ffe0ac6f27dbc1ea41fdb2fe83cfcaa7829b910bd
+      computeResources:
+        limits:
+          memory: 2Gi
+          cpu: 800m
+        requests:
+          memory: 2Gi
+          cpu: 800m
+      env:
+        - name: SOURCE_PATH
+          value: $(workspaces.source.path)
+      workingDir: /tekton/home
+      securityContext:
+        capabilities:
+          add:
+            - SETFCAP
+      # language=bash
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        # shellcheck source=/dev/null
+        . /utils.sh
+        trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
+
+        echo '{}' > "$(results.SCAN_OUTPUT.path)"
+
+        if [ ! -d "$SOURCE_PATH" ]; then
+          note="Task $(context.task.name) failed: Source directory not found at $SOURCE_PATH."
+          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+          touch /tekton/home/pickle-scan-error
+          exit 0
+        fi
+
+        echo "Running picklescan on $SOURCE_PATH"
+        set +o pipefail
+        picklescan --path "$SOURCE_PATH" 2>&1 | tee /tekton/home/picklescan-output.txt
+        picklescan_exit=${PIPESTATUS[0]}
+        set -o pipefail
+
+        if [ "$picklescan_exit" -gt 1 ]; then
+          note="Task $(context.task.name) failed: picklescan exited with code $picklescan_exit."
+          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+          touch /tekton/home/pickle-scan-error
+          exit 0
+        fi
+
+        if [ ! -s /tekton/home/picklescan-output.txt ]; then
+          note="Task $(context.task.name) failed: picklescan produced no output."
+          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+          touch /tekton/home/pickle-scan-error
+          exit 0
+        fi
+
+        parse_picklescan_output /tekton/home/picklescan-output.txt > /tekton/home/picklescan-report.json
+
+        if ! jq -e '.infected_files and .summary' /tekton/home/picklescan-report.json > /dev/null 2>&1; then
+          note="Task $(context.task.name) failed: picklescan report is missing expected fields."
+          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+          touch /tekton/home/pickle-scan-error
+          exit 0
+        fi
+
+        echo "Pickle scan report:"
+        cat /tekton/home/picklescan-report.json
+
+        if jq -e '.infected_files | length > 0' /tekton/home/picklescan-report.json > /dev/null 2>&1; then
+          echo ""
+          echo "WARNING: Infected files detected:"
+          jq -r '.infected_files | to_entries[] | "  \(.key): \(.value)"' /tekton/home/picklescan-report.json
+        fi
+    - name: oci-attach-report
+      image: quay.io/konflux-ci/task-runner:1.6.0@sha256:1abfe4e50d4e961d0fd9790202565f93ee650fe8dfc50932c94989acba10485f
+      computeResources:
+        limits:
+          memory: 256Mi
+          cpu: 100m
+        requests:
+          memory: 256Mi
+          cpu: 100m
+      workingDir: /tekton/home
+      env:
+        - name: SKIP_OCI_ATTACH_REPORT
+          value: $(params.skip-oci-attach-report)
+        - name: IMAGE_URL
+          value: $(params.image-url)
+        - name: IMAGE_DIGEST
+          value: $(params.image-digest)
+      # language=bash
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        if [ "$SKIP_OCI_ATTACH_REPORT" = "true" ]; then
+          echo "OCI attach report skipped by parameter."
+          exit 0
+        fi
+
+        if [ ! -f /tekton/home/picklescan-report.json ]; then
+          echo "No pickle scan report found. Skipping upload."
+          exit 0
+        fi
+
+        imagewithouttag=$(echo -n "$IMAGE_URL" | sed "s/\(.*\):.*/\1/")
+        imageanddigest="${imagewithouttag}@${IMAGE_DIGEST}"
+
+        mkdir -p /tmp/auth && select-oci-auth "${imageanddigest}" > /tmp/auth/config.json
+        export DOCKER_CONFIG=/tmp/auth
+
+        MEDIA_TYPE="application/vnd.redhat.pickle-scan-report+json"
+
+        echo "Attaching pickle scan report to ${imageanddigest}"
+        retry oras attach --no-tty --registry-config "/tmp/auth/config.json" \
+          --artifact-type "${MEDIA_TYPE}" \
+          "${imageanddigest}" \
+          "/tekton/home/picklescan-report.json:${MEDIA_TYPE}"
+    - name: evaluate-policy
+      image: quay.io/konflux-ci/konflux-test:v1.5.1@sha256:e6b090c515168c8ed0fa932ffe0ac6f27dbc1ea41fdb2fe83cfcaa7829b910bd
+      computeResources:
+        limits:
+          memory: 256Mi
+          cpu: 100m
+        requests:
+          memory: 256Mi
+          cpu: 100m
+      workingDir: /tekton/home
+      env:
+        - name: IMAGE_URL
+          value: $(params.image-url)
+        - name: IMAGE_DIGEST
+          value: $(params.image-digest)
+      # language=bash
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        # shellcheck source=/dev/null
+        . /utils.sh
+        trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
+
+        if [ -f /tekton/home/pickle-scan-error ]; then
+          echo "Previous step failed. Preserving its TEST_OUTPUT."
+          exit 0
+        fi
+
+        if [ ! -f /tekton/home/picklescan-report.json ]; then
+          note="Task $(context.task.name) failed: No pickle scan report found."
+          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+          exit 0
+        fi
+
+        if ! jq -ce '.summary' /tekton/home/picklescan-report.json > "$(results.SCAN_OUTPUT.path)"; then
+          note="Task $(context.task.name) failed: Pickle scan report missing .summary field."
+          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+          exit 0
+        fi
+
+        # Use ec test (not conftest) so the rego policy drives TEST_OUTPUT directly,
+        # matching the clamav-scan pattern and avoiding dead-code re-derivation from raw counts.
+        # Note: this changes the TEST_OUTPUT shape from make_result_json to ec's appstudio format.
+        EC_EXPERIMENTAL=1 ec test \
+          --namespace required_checks \
+          --policy /project/picklescan/virus-check.rego \
+          -o appstudio \
+          /tekton/home/picklescan-report.json | tee /tekton/home/picklescan-ec-test.json || true
+
+        if [ ! -s /tekton/home/picklescan-ec-test.json ]; then
+          note="Task $(context.task.name) failed: Policy evaluation did not produce output."
+          TEST_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+          echo "${TEST_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+          exit 0
+        fi
+
+        jq -rce '.' /tekton/home/picklescan-ec-test.json | tee "$(results.TEST_OUTPUT.path)"
+
+        echo '{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": ["'"$IMAGE_DIGEST"'"]}}' | tee "$(results.IMAGES_PROCESSED.path)"
+  volumes:
+    - name: trusted-ca
+      configMap:
+        name: $(params.ca-trust-config-map-name)
+        items:
+          - key: $(params.ca-trust-config-map-key)
+            path: ca-bundle.crt
+        optional: true
