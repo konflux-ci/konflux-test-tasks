@@ -7,7 +7,7 @@ toolchain go1.26.4
 require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.21.6
-	github.com/tektoncd/pipeline v1.12.0
+	github.com/tektoncd/pipeline v1.13.0
 	github.com/zregvart/tkn-fmt v0.0.0-20240614122620-a2995427266c
 	k8s.io/api v0.36.1
 	k8s.io/apimachinery v0.36.1
