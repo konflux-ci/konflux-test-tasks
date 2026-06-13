@@ -25,6 +25,8 @@
         "task/clamav-scan-min/**",
         "task/clamav-scan/**",
         "task/deprecated-image-check/**",
+        "task/pickle-scan-oci-ta/**",
+        "task/pickle-scan/**",
         "task/roxctl-scan/**",
         "task/tpa-scan/**"
       ]
