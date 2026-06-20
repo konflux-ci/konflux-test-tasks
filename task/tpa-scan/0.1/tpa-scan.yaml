@@ -51,7 +51,7 @@ spec:
         readOnly: true
   steps:
     - name: get-vulnerabilities
-      image: quay.io/konflux-ci/konflux-test:v1.4.53@sha256:724ecf16a1fc9b51a1b20c91c5125556c53d471d0d8db1648d2404e4715f204e
+      image: quay.io/konflux-ci/konflux-test:v1.5.2@sha256:c370a7bc6e172cdbab001f1a19f37ebc95f47c3d8fe2d915fa4641132490ead7
       computeResources:
         limits:
           memory: 2Gi
@@ -193,7 +193,7 @@ spec:
         images_processed=$(echo "${images_processed_template/\[%s]/[$digests_processed_string]}")
         echo "$images_processed" > images-processed.json
     - name: oci-attach-report
-      image: quay.io/konflux-ci/task-runner:1.6.0@sha256:1abfe4e50d4e961d0fd9790202565f93ee650fe8dfc50932c94989acba10485f
+      image: quay.io/konflux-ci/task-runner:1.8.1@sha256:b9ef0479b57a494368a12a02886c650314c9ac7391c6228f21065865aab71c9e
       computeResources:
         limits:
           memory: 256Mi
