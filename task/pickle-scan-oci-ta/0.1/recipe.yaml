@@ -1,0 +1,13 @@
+---
+base: ../../pickle-scan/0.1/pickle-scan.yaml
+add:
+  - use-source
+removeWorkspaces:
+  - source
+replacements:
+  workspaces.source.path: /var/workdir/source
+description: >-
+  Scans OCI artifacts and AI model files for malicious pickle files
+  using picklescan. Uses trusted artifacts for source data.
+  Pickle files are commonly used for Python/ML model serialization
+  and can contain arbitrary code execution payloads.
