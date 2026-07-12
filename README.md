@@ -12,11 +12,11 @@ This repository is organized into several key directories, each serving a specif
 
 ### Tasks
 
-The `tasks` directory contains standardized [Tekton tasks](https://tekton.dev/docs/pipelines/tasks/) that are used to run different kinds of verifications for container builds.
+The `task` directory contains standardized [Tekton tasks](https://tekton.dev/docs/pipelines/tasks/) that are used to run different kinds of verifications for container builds.
 
 #### Adding a New Task
 
-To add a new task, create a `.yaml` file inside the `tasks/<your-task-name>/0.1/` directory. Ensure it follows the Tekton [Task specification](https://tekton.dev/docs/pipelines/tasks/), is well-documented (add `README.md` file), [well-versioned](#-versioning) and includes example usage.
+To add a new task, create a `.yaml` file inside the `task/<your-task-name>/0.1/` directory. Ensure it follows the Tekton [Task specification](https://tekton.dev/docs/pipelines/tasks/), is well-documented (add `README.md` file), [well-versioned](#-versioning) and includes example usage.
 
 Refer to the [Building Tekton tasks as bundles in Konflux](https://konflux-ci.dev/docs/end-to-end/building-tekton-tasks/) guide for details on how to onboard the new Tekton tasks to Konflux, enabling their integration into the Konflux build pipelines.
 
