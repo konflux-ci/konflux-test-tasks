@@ -92,7 +92,7 @@ spec:
         - --insecure-skip-tls-verify=$(INSECURE)
         - --token-file=/service-account-token/token
     - name: get-image-manifests
-      image: quay.io/konflux-ci/konflux-test:v1.5.2@sha256:c370a7bc6e172cdbab001f1a19f37ebc95f47c3d8fe2d915fa4641132490ead7
+      image: quay.io/konflux-ci/konflux-test:v1.5.3@sha256:37299834a7a95c042e2d9bc24d0668ccfc8dd4c96baf1339a0f3f46915e91455
       # the roxctl image neither has skopeo or jq installed. Hence, we create an extra step to get the image manifest digests
       computeResources:
         limits:
@@ -163,7 +163,7 @@ spec:
             exit 0
           fi
     - name: proccess-output
-      image: quay.io/konflux-ci/konflux-test:v1.5.2@sha256:c370a7bc6e172cdbab001f1a19f37ebc95f47c3d8fe2d915fa4641132490ead7
+      image: quay.io/konflux-ci/konflux-test:v1.5.3@sha256:37299834a7a95c042e2d9bc24d0668ccfc8dd4c96baf1339a0f3f46915e91455
       env:
         - name: IMAGE_URL
           value: $(params.image-url)
@@ -199,7 +199,7 @@ spec:
         images_processed=$(echo "${images_processed_template/\[%s]/[$digests_processed_string]}")
         echo "$images_processed" > images-processed.json
     - name: oci-attach-report
-      image: quay.io/konflux-ci/oras:latest@sha256:9f5834690ddfc78b490d3214abf8ebed93518af4c1c45091b8d66753e3881f44
+      image: quay.io/konflux-ci/oras:latest@sha256:18fa6c06c8a80ba272354f969e7a80c09d834c4889acc7079353080d7e979d33
       workingDir: /tekton/home
       env:
         - name: IMAGE_URL
@@ -256,7 +256,7 @@ spec:
         done
         echo "${reports_json}" > reports.json
     - name: conftest-vulnerabilities
-      image: quay.io/konflux-ci/konflux-test:v1.5.2@sha256:c370a7bc6e172cdbab001f1a19f37ebc95f47c3d8fe2d915fa4641132490ead7
+      image: quay.io/konflux-ci/konflux-test:v1.5.3@sha256:37299834a7a95c042e2d9bc24d0668ccfc8dd4c96baf1339a0f3f46915e91455
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       computeResources:
