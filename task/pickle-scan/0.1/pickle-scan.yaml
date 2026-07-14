@@ -3,7 +3,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.1"
+    app.kubernetes.io/version: "0.1.1"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "pickle, security, konflux"
@@ -33,8 +33,6 @@ spec:
   results:
     - name: TEST_OUTPUT
       description: Tekton task test output.
-    - name: SCAN_OUTPUT
-      description: Pickle scan result.
     - name: IMAGES_PROCESSED
       description: Images processed in the task.
   workspaces:
@@ -200,7 +198,7 @@ spec:
           exit 0
         fi
 
-        if ! jq -ce '.summary' /tekton/home/picklescan-report.json > "$(results.SCAN_OUTPUT.path)"; then
+        if ! jq -ce .summary /tekton/home/picklescan-report.json > /dev/null; then
           note="Task $(context.task.name) failed: Pickle scan report missing .summary field."
           ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
           echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"

@@ -62,14 +62,11 @@ spec:
         params:
           - name: TEST_OUTPUT
             value: "$(tasks.pickle-scan.results.TEST_OUTPUT)"
-          - name: SCAN_OUTPUT
-            value: "$(tasks.pickle-scan.results.SCAN_OUTPUT)"
           - name: IMAGES_PROCESSED
             value: "$(tasks.pickle-scan.results.IMAGES_PROCESSED)"
         taskSpec:
           params:
             - name: TEST_OUTPUT
-            - name: SCAN_OUTPUT
             - name: IMAGES_PROCESSED
           results:
             - name: TEST_OUTPUT
@@ -80,8 +77,6 @@ spec:
               env:
                 - name: TEST_OUTPUT
                   value: "$(params.TEST_OUTPUT)"
-                - name: SCAN_OUTPUT
-                  value: "$(params.SCAN_OUTPUT)"
                 - name: IMAGES_PROCESSED
                   value: "$(params.IMAGES_PROCESSED)"
                 - name: IMAGE_URL
@@ -106,50 +101,27 @@ spec:
                   echo "Got: $TEST_OUTPUT"
                   exit 1
                 }
+
                 result=$(echo "$TEST_OUTPUT" | jq -r '.result')
-                if [[ "$result" != "SUCCESS" && "$result" != "WARNING" ]]; then
-                  echo "FAIL: Expected result SUCCESS or WARNING, got: $result"
+                if [[ "$result" != "SUCCESS" ]]; then
+                  echo "FAIL: Expected result SUCCESS, got: $result"
                   exit 1
                 fi
                 echo "PASS: TEST_OUTPUT is valid with result=$result"
 
-
-                # Validate SCAN_OUTPUT structure
-                echo "--- Checking SCAN_OUTPUT ---"
-                echo "$SCAN_OUTPUT" | jq -e '
-                  has("scanned_files") and
-                  has("infected_files") and
-                  has("dangerous_globals")
-                ' > /dev/null || {
-                  echo "FAIL: SCAN_OUTPUT missing required fields"
-                  echo "Got: $SCAN_OUTPUT"
-                  exit 1
-                }
-                echo "PASS: SCAN_OUTPUT has required fields"
-
-                # Validate SCAN_OUTPUT fields are numbers
-                echo "$SCAN_OUTPUT" | jq -e '
-                  (.scanned_files | type) == "number" and
-                  (.infected_files | type) == "number" and
-                  (.dangerous_globals | type) == "number"' > /dev/null || {
-                  echo "FAIL: SCAN_OUTPUT fields are not numbers"
-                  echo "Got: $SCAN_OUTPUT"
-                  exit 1
-                }
-                echo "PASS: SCAN_OUTPUT fields are numbers"
-
-                scanned=$(echo "$SCAN_OUTPUT" | jq -r '.scanned_files')
-                if [[ "$scanned" -lt 1 ]]; then
-                  echo "FAIL: Expected at least 1 scanned file, got: $scanned"
+                failures=$(echo "$TEST_OUTPUT" | jq -r '.failures')
+                if [[ "$failures" != "0" ]]; then
+                  echo "FAIL: Expected 0 failures in TEST_OUTPUT, got: $failures"
                   exit 1
                 fi
-                echo "PASS: picklescan scanned ${scanned} file(s)"
-                infected=$(echo "$SCAN_OUTPUT" | jq -r '.infected_files')
-                if [[ "$infected" -ne 0 ]]; then
-                  echo "FAIL: Expected 0 infected files for safe fixture, got: $infected"
+                echo "PASS: TEST_OUTPUT is valid with failures=$failures"
+
+                successes=$(echo "$TEST_OUTPUT" | jq -r '.successes')
+                if [[ "$successes" != "1" ]]; then
+                  echo "FAIL: Expected 1 successes in TEST_OUTPUT, got: $successes"
                   exit 1
                 fi
-                echo "PASS: No infected files"
+                echo "PASS: TEST_OUTPUT is valid with successes=$successes"
 
                 # Validate IMAGES_PROCESSED structure
                 echo "--- Checking IMAGES_PROCESSED ---"
