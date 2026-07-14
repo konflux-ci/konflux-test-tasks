@@ -28,4 +28,3 @@ code execution payloads.
 | Name | Description |
 |------|-------------|
 | TEST_OUTPUT | Tekton task test output |
-| SCAN_OUTPUT | Pickle scan result summary (scanned_files, infected_files, dangerous_globals) |

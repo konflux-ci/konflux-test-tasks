@@ -7,7 +7,7 @@ metadata:
     tekton.dev/pipelines.minVersion: 0.12.1
     tekton.dev/tags: pickle, security, konflux
   labels:
-    app.kubernetes.io/version: "0.1"
+    app.kubernetes.io/version: 0.1.1
 spec:
   description: Scans OCI artifacts and AI model files for malicious pickle
     files using picklescan. Uses trusted artifacts for source data. Pickle
@@ -39,8 +39,6 @@ spec:
   results:
     - name: IMAGES_PROCESSED
       description: Images processed in the task.
-    - name: SCAN_OUTPUT
-      description: Pickle scan result.
     - name: TEST_OUTPUT
       description: Tekton task test output.
   volumes:
@@ -79,8 +77,6 @@ spec:
         # shellcheck source=/dev/null
         . /utils.sh
         trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
-
-        echo '{}' >"$(results.SCAN_OUTPUT.path)"
 
         if [ ! -d "$SOURCE_PATH" ]; then
           note="Task $(context.task.name) failed: Source directory not found at $SOURCE_PATH."
@@ -212,7 +208,7 @@ spec:
           exit 0
         fi
 
-        if ! jq -ce '.summary' /tekton/home/picklescan-report.json >"$(results.SCAN_OUTPUT.path)"; then
+        if ! jq -ce .summary /tekton/home/picklescan-report.json >/dev/null; then
           note="Task $(context.task.name) failed: Pickle scan report missing .summary field."
           ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
           echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"

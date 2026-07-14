@@ -2,6 +2,12 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.1.1
+
+### Removed
+
+- SCAN_OUTPUT result has been removed as it wasn't compatible with standardized Konflux UI
+
 ## 0.1
 
 ### Added
