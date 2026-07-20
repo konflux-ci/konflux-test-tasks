@@ -15,9 +15,6 @@ spec:
     - name: image-digest
       description: Image digest to scan.
       default: ""
-    - name: rox_image
-      description: Image providing the roxctl tool.
-      default: 'registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel8@sha256:d6d5e50d1deda1e7b232d4e3f60fda6f3d27266b6fc007c8ec48a324e1c6c15c'
     - name: rox_central_endpoint
       description: The address:port tuple for RHACS Stackrox Central.
       type: string
@@ -81,7 +78,7 @@ spec:
   steps:
     - name: exchange-service-account-token
       workingDir: /tekton/home
-      image: $(params.rox_image)
+      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel8@sha256:d6d5e50d1deda1e7b232d4e3f60fda6f3d27266b6fc007c8ec48a324e1c6c15c
       volumeMounts:
         - name: token-vol
           mountPath: /service-account-token
@@ -134,7 +131,7 @@ spec:
           exit 0
         fi
     - name: rox-image-scan
-      image: $(params.rox_image)
+      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel8@sha256:d6d5e50d1deda1e7b232d4e3f60fda6f3d27266b6fc007c8ec48a324e1c6c15c
       env:
         - name: HOME
           value: /tekton/home
