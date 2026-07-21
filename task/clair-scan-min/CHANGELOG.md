@@ -17,14 +17,12 @@ If that's not something you ever plan to do, consider removing this section.
 
 - Replaced `quay.io/konflux-ci/oras:latest` image with `quay.io/konflux-ci/task-runner:1.5.0` in the oci-attach-report step.
 
+### Added
+
+- set docker-config-dir in clair-action report command
+
 ## 0.3
 
 ### Added
 
 - Started tracking changes in this file.
-
-## 0.3.2
-
-### Added
-
-- set docker-config-dir in clair-action report command
