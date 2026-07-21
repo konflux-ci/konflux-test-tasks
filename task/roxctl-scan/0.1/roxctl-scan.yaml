@@ -15,6 +15,9 @@ spec:
     - name: image-digest
       description: Image digest to scan.
       default: ""
+    - name: rox_image
+      description: This param is no longer used. Its value will be ignored.
+      default: ""
     - name: rox_central_endpoint
       description: The address:port tuple for RHACS Stackrox Central.
       type: string
