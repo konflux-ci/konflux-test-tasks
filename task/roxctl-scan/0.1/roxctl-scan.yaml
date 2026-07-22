@@ -17,7 +17,7 @@ spec:
       default: ""
     - name: rox_image
       description: Image providing the roxctl tool.
-      default: 'registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel8@sha256:d6d5e50d1deda1e7b232d4e3f60fda6f3d27266b6fc007c8ec48a324e1c6c15c'
+      default: 'registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel9@sha256:979f329cbe0d0dd1c41e63b471c246294780c5daf029c239ebd7d48129e75a15'
     - name: rox_central_endpoint
       description: The address:port tuple for RHACS Stackrox Central.
       type: string
@@ -154,7 +154,7 @@ spec:
           value: Tekton
       script: |
         #!/usr/bin/env bash
-          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --output="$OUTPUT" --image="$IMAGE" | tee /tekton/home/rox-output.json
+          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --image="$IMAGE" > /tekton/home/rox-output.json
           if [ ! -s /tekton/home/rox-output.json ]; then
             echo "Failed to scan image using Roxctl"
             note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
@@ -178,6 +178,9 @@ spec:
         set -o pipefail
         # shellcheck source=/utils.sh
         . /utils.sh
+
+
+        jq -s -f /parse_to_cve_oriented_output.jq /tekton/home/rox-output.json | tee /tekton/home/parsed-rox-output.json
 
         images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
         digests_processed=()
@@ -275,7 +278,7 @@ spec:
         . /utils.sh
         trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
 
-        rox_result_files=$(ls /tekton/home/rox-output*.json)
+        rox_result_files=$(ls /tekton/home/parsed-rox-output*.json)
         if [ -z "$rox_result_files" ]; then
           echo "Previous step [get-vulnerabilities] failed: No rox-output files found in /tekton/home."
           exit 1
