@@ -28,3 +28,11 @@ code execution payloads.
 | Name | Description |
 |------|-------------|
 | TEST_OUTPUT | Tekton task test output |
+| IMAGES_PROCESSED | Images processed in the task |
+
+## Trusted Artifacts variant
+
+A Trusted Artifacts variant of this task,
+[pickle-scan-oci-ta](../../pickle-scan-oci-ta/0.1/pickle-scan-oci-ta.yaml),
+consumes the files to scan via the `SOURCE_ARTIFACT` parameter instead of
+the `source` workspace.
