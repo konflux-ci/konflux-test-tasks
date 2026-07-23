@@ -48,6 +48,7 @@ Currently available integration tests:
 - `test-clamav-scan.yaml` - Validates the clamav-scan task outputs (TEST_OUTPUT, SCAN_OUTPUT, IMAGES_PROCESSED, REPORTS)
 - `test-deprecated-image.yaml` - Validates the deprecated-image-check task outputs (TEST_OUTPUT, SCAN_OUTPUT, IMAGES_PROCESSED, REPORTS)
 - `test-pickle-scan.yaml` - Validates the pickle-scan task outputs (TEST_OUTPUT, IMAGES_PROCESSED)
+- `test-pickle-scan-oci-ta.yaml` - Validates the pickle-scan-oci-ta task outputs (TEST_OUTPUT, IMAGES_PROCESSED)
 - `test-roxctl-scan.yaml` - Validates the roxctl-scan task outputs (TEST_OUTPUT, SCAN_OUTPUT, IMAGES_PROCESSED, REPORTS)
 - `test-tpa-scan.yaml` - Validates the tpa-scan task outputs (TEST_OUTPUT, SCAN_OUTPUT, IMAGES_PROCESSED, REPORTS)
 - `validate-migration.yaml` - Validates the migration file introduced by a branch
