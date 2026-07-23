@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.21.7
-	github.com/tektoncd/pipeline v1.14.0
+	github.com/tektoncd/pipeline v1.14.1
 	github.com/zregvart/tkn-fmt v0.0.0-20240614122620-a2995427266c
 	k8s.io/api v0.36.2
 	k8s.io/apimachinery v0.36.2
