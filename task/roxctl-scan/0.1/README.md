@@ -11,8 +11,7 @@ analyzing the components of a container image and comparing them against ACS vul
 |--------------|-----------------------------------------------------------------|-|
 | image-digest | Image digest to scan.                                           | None |
 | image-url    | Image URL.                                                      | None |
-| ca-trust-config-map-name|The name of the ConfigMap to read CA bundle data from.| trusted-ca |
-| ca-trust-config-map-key |The name of the key in the ConfigMap that contains the CA bundle data.| ca-bundle.crt |
+| rox_central_endpoint | The address:port tuple for RHACS Stackrox Central | https://acs-d4dgfbkto15c73biblcg.acs.rhcloud.com |
 
 ## Results:
 

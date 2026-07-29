@@ -1,0 +1,1 @@
+../../../clair-scan/0.4/migrations/0.4.sh
