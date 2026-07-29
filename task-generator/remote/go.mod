@@ -4,9 +4,9 @@ go 1.26.4
 
 require (
 	github.com/tektoncd/pipeline v1.14.0
-	k8s.io/api v0.36.2
-	k8s.io/apimachinery v0.36.2
-	k8s.io/cli-runtime v0.36.2
+	k8s.io/api v0.36.3
+	k8s.io/apimachinery v0.36.3
+	k8s.io/cli-runtime v0.36.3
 	k8s.io/klog/v2 v2.140.0
 	sigs.k8s.io/controller-runtime v0.24.1
 )
@@ -88,7 +88,7 @@ require (
 	google.golang.org/grpc v1.82.1 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/client-go v0.36.2 // indirect
+	k8s.io/client-go v0.36.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20260706235625-cdb1db5517a0 // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
 	knative.dev/pkg v0.0.0-20260531000007-52dbd5ece63f // indirect
