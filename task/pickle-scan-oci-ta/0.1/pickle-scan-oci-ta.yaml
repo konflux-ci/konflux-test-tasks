@@ -173,7 +173,7 @@ spec:
         retry oras attach --no-tty --registry-config "/tmp/auth/config.json" \
           --artifact-type "${MEDIA_TYPE}" \
           "${imageanddigest}" \
-          "/tekton/home/picklescan-report.json:${MEDIA_TYPE}"
+          "picklescan-report.json:${MEDIA_TYPE}"
       computeResources:
         limits:
           cpu: 100m

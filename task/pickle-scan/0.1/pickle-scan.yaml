@@ -162,7 +162,7 @@ spec:
         retry oras attach --no-tty --registry-config "/tmp/auth/config.json" \
           --artifact-type "${MEDIA_TYPE}" \
           "${imageanddigest}" \
-          "/tekton/home/picklescan-report.json:${MEDIA_TYPE}"
+          "picklescan-report.json:${MEDIA_TYPE}"
     - name: evaluate-policy
       image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
       computeResources:
