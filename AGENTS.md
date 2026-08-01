@@ -12,7 +12,7 @@ This repository contains a collection of [Tekton](https://tekton.dev/) resources
 ## Repository Structure
 
 ```
-tasks/                 # standardized Tekton tasks that are used to run different kinds of verifications for container builds
+task/                  # standardized Tekton tasks that are used to run different kinds of verifications for container builds
 policies/              # Conforma policies that need to be applied when building bundle images of individual tasks
 task-generator/        # Collection of tools used for generating various versions of tasks
 .tekton/               # Tekton build PipelineRuns which create Tekton bundle images
