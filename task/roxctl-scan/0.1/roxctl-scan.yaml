@@ -81,7 +81,7 @@ spec:
   steps:
     - name: exchange-service-account-token
       workingDir: /tekton/home
-      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel8@sha256:d6d5e50d1deda1e7b232d4e3f60fda6f3d27266b6fc007c8ec48a324e1c6c15c
+      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel9@sha256:979f329cbe0d0dd1c41e63b471c246294780c5daf029c239ebd7d48129e75a15
       volumeMounts:
         - name: token-vol
           mountPath: /service-account-token
@@ -92,7 +92,7 @@ spec:
         - --insecure-skip-tls-verify=$(INSECURE)
         - --token-file=/service-account-token/token
     - name: get-image-manifests
-      image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+      image: quay.io/konflux-ci/konflux-test:v1.5.5@sha256:affed3aa04d6b27a0d2eacb99062b9060a82c2336a1db5acd4640a5043e08257
       # the roxctl image neither has skopeo or jq installed. Hence, we create an extra step to get the image manifest digests
       computeResources:
         limits:
@@ -134,7 +134,7 @@ spec:
           exit 0
         fi
     - name: rox-image-scan
-      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel8@sha256:d6d5e50d1deda1e7b232d4e3f60fda6f3d27266b6fc007c8ec48a324e1c6c15c
+      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel9@sha256:979f329cbe0d0dd1c41e63b471c246294780c5daf029c239ebd7d48129e75a15
       env:
         - name: HOME
           value: /tekton/home
@@ -154,7 +154,7 @@ spec:
           value: Tekton
       script: |
         #!/usr/bin/env bash
-          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --output="$OUTPUT" --image="$IMAGE" | tee /tekton/home/rox-output.json
+          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --image="$IMAGE" > /tekton/home/rox-output.json
           if [ ! -s /tekton/home/rox-output.json ]; then
             echo "Failed to scan image using Roxctl"
             note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
@@ -163,7 +163,7 @@ spec:
             exit 0
           fi
     - name: proccess-output
-      image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+      image: quay.io/konflux-ci/konflux-test:v1.5.5@sha256:affed3aa04d6b27a0d2eacb99062b9060a82c2336a1db5acd4640a5043e08257
       env:
         - name: IMAGE_URL
           value: $(params.image-url)
@@ -178,6 +178,10 @@ spec:
         set -o pipefail
         # shellcheck source=/utils.sh
         . /utils.sh
+
+
+        jq -s -f /parse_to_cve_oriented_output.jq /tekton/home/rox-output.json | tee /tekton/home/pre-parsed-rox-output.json
+        jq '{roxctl_new: .}' /tekton/home/pre-parsed-rox-output.json > /tekton/home/parsed-rox-output.json
 
         images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
         digests_processed=()
@@ -256,7 +260,7 @@ spec:
         done
         echo "${reports_json}" > reports.json
     - name: conftest-vulnerabilities
-      image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+      image: quay.io/konflux-ci/konflux-test:v1.5.5@sha256:affed3aa04d6b27a0d2eacb99062b9060a82c2336a1db5acd4640a5043e08257
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       computeResources:
@@ -275,7 +279,7 @@ spec:
         . /utils.sh
         trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
 
-        rox_result_files=$(ls /tekton/home/rox-output*.json)
+        rox_result_files=$(ls /tekton/home/parsed-rox-output*.json)
         if [ -z "$rox_result_files" ]; then
           echo "Previous step [get-vulnerabilities] failed: No rox-output files found in /tekton/home."
           exit 1
