@@ -12,7 +12,13 @@ spec:
       - name: TEST_OUTPUT
         value: "$(tasks.check-results.results.TEST_OUTPUT)"
     tasks:
-      - name: roxctl-scan
+      - matrix:
+        params:
+          - name: image-platform
+            values: 
+              - arm64
+              - amd64
+        name: roxctl-scan
         taskRef:
           resolver: git
           params:

@@ -18,6 +18,9 @@ spec:
     - name: rox_image
       description: This param is no longer used. Its value will be ignored.
       default: ""
+    - name: image-platform
+      description: The platform built by.
+      default: ""
     - name: rox_central_endpoint
       description: The address:port tuple for RHACS Stackrox Central.
       type: string
@@ -138,7 +141,7 @@ spec:
       env:
         - name: HOME
           value: /tekton/home
-        - name: IMAGE
+        - name: IMAGE_URL
           value: $(params.image-url)
         - name: INSECURE
           value: $(params.insecure-skip-tls-verify)
@@ -152,16 +155,77 @@ spec:
           value: $(params.rox_central_endpoint)
         - name: ROX_EXECUTION_ENV
           value: Tekton
+        - name: IMAGE_PLATFORM
+          value: $(params.image-platform)
+      workingDir: /tekton/home
       script: |
         #!/usr/bin/env bash
-          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --image="$IMAGE" > /tekton/home/rox-output.json
-          if [ ! -s /tekton/home/rox-output.json ]; then
+        set -o errexit
+        set -o nounset
+        set -o pipefail
+
+        imagewithouttag=$(echo -n "$IMAGE_URL" | sed "s/\(.*\):.*/\1/")
+        digests_processed=()
+
+        roxctl_report(){
+          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --image="$1" > /tekton/home/rox-output-"$2".json
+          if [ ! -s /tekton/home/rox-output-"$2".json ]; then
             echo "Failed to scan image using Roxctl"
-            note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
+            note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE_URL For details, check Tekton task log."
             ERROR_OUTPUT=$note
             echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
             exit 0
           fi
+        }
+
+        run_roxctl_on_arch() {
+          local arch="$1"
+          local sha_file="image-manifest-$arch.sha"
+
+          if [ -e "$sha_file" ]; then
+            local arch_sha
+            arch_sha=$(<"$sha_file")
+            local digest="${imagewithouttag}@${arch_sha}"
+
+            echo "Running roxctl on $arch image manifest..."
+            roxctl_report "$digest" "$arch" || true
+
+            digests_processed+=("\"$arch_sha\"")
+          fi
+        }
+
+
+        platform="${IMAGE_PLATFORM}"
+
+        # If a platform is specified, extract the architecture and run roxctl on the corresponding image manifest
+        if [ -n "$platform" ]; then
+          arch="${platform#*/}"
+          if [ "$arch" = "x86_64" ] || [ "$arch" = "local" ] || [ "$arch" = "localhost" ]; then
+            arch="amd64"
+          fi
+          # Validate against supported arch list. If it's not a known arch, fallback to amd64
+          case "$arch" in
+            amd64|ppc64le|arm64|s390x)
+              ;;
+            *)
+              echo "Error: Unsupported or malformed architecture: '$arch' (parsed from platform: '$platform')"
+              exit 0
+              ;;
+          esac
+
+
+        run_roxctl_on_arch "$arch"
+
+        # If no platform is specified, run roxctl on all available image manifests
+        else
+          for sha_file in image-manifest-*.sha; do
+            if [ -e "$sha_file" ]; then
+              arch=$(basename "$sha_file" | sed 's/image-manifest-//;s/.sha//')
+              run_roxctl_on_arch "$arch"
+            fi
+          done
+        fi
+
     - name: proccess-output
       image: quay.io/konflux-ci/konflux-test:v1.5.5@sha256:affed3aa04d6b27a0d2eacb99062b9060a82c2336a1db5acd4640a5043e08257
       env:
@@ -178,10 +242,27 @@ spec:
         set -o pipefail
         # shellcheck source=/utils.sh
         . /utils.sh
+        ls -al
+        trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
 
+        rox_result_files=$(ls /tekton/home/rox-output-*.json 2>/dev/null || true)
+        if [ -z "$rox_result_files" ]; then
+          echo "Previous step [get-vulnerabilities] failed: No tpa-report files found in /tekton/home."
+          exit 1
+        fi
+        echo $rox_result_files
 
-        jq -s -f /parse_to_cve_oriented_output.jq /tekton/home/rox-output.json | tee /tekton/home/pre-parsed-rox-output.json
-        jq '{roxctl_new: .}' /tekton/home/pre-parsed-rox-output.json > /tekton/home/parsed-rox-output.json
+        for file in $rox_result_files; do
+        echo $file
+          file_suffix=$(basename "$file" | sed 's/rox-output-//;s/.json//')
+          if [ ! -s "$file" ]; then
+            echo "Previous step [get-vulnerabilities] failed: $file is empty."
+          else
+            jq -s -f /parse_to_cve_oriented_output.jq $file | tee /tekton/home/pre-parsed-rox-output-"{$file_suffix}".json
+            jq '{roxctl_new: .}' /tekton/home/pre-parsed-rox-output-"{$file_suffix}".json > /tekton/home/parsed-rox-output-"{$file_suffix}".json
+          fi
+        done
+        
 
         images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
         digests_processed=()
@@ -273,11 +354,13 @@ spec:
         capabilities:
           add:
             - SETFCAP
+      workingDir: /tekton/home
       script: |
         #!/usr/bin/env bash
         set -euo pipefail
         . /utils.sh
         trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
+        ls -al
 
         rox_result_files=$(ls /tekton/home/parsed-rox-output*.json)
         if [ -z "$rox_result_files" ]; then
