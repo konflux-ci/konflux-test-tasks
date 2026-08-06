@@ -154,14 +154,44 @@ spec:
           value: Tekton
       script: |
         #!/usr/bin/env bash
-          roxctl image scan --insecure-skip-tls-verify="$INSECURE" --image="$IMAGE" > /tekton/home/rox-output.json
-          if [ ! -s /tekton/home/rox-output.json ]; then
-            echo "Failed to scan image using Roxctl"
-            note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $IMAGE For details, check Tekton task log."
-            ERROR_OUTPUT=$note
-            echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+        set -euo pipefail
+        # shellcheck disable=SC2153 # IMAGE is a Tekton env variable, not a typo
+
+        imagewithouttag=$(echo -n "$IMAGE" | sed "s/\(.*\):.*/\1/")
+
+        scan_image() {
+          local image="$1"
+          local label="$2"
+          local outfile="/tekton/home/rox-output-${label}.json"
+
+          echo "Scanning $label image: $image"
+          if ! roxctl image scan --insecure-skip-tls-verify="$INSECURE" --image="$image" > "$outfile"; then
+            rm -f /tekton/home/rox-output-*.json
+            echo "roxctl image scan failed for $label image: $image"
+            note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $image For details, check Tekton task log."
+            printf '{"result":"ERROR","timestamp":"0","note":"%s","namespace":"default","successes":0,"failures":0,"warnings":0}' "$note" | tee "$(results.TEST_OUTPUT.path)"
             exit 0
           fi
+
+          if [ ! -s "$outfile" ]; then
+            rm -f /tekton/home/rox-output-*.json
+            echo "roxctl image scan produced empty output for $label image: $image"
+            note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $image For details, check Tekton task log."
+            printf '{"result":"ERROR","timestamp":"0","note":"%s","namespace":"default","successes":0,"failures":0,"warnings":0}' "$note" | tee "$(results.TEST_OUTPUT.path)"
+            exit 0
+          fi
+        }
+
+        if compgen -G "/tekton/home/image-manifest-*.sha" > /dev/null; then
+          for sha_file in /tekton/home/image-manifest-*.sha; do
+            arch_sha=$(cat "$sha_file")
+            arch=$(basename "$sha_file" | sed 's/image-manifest-//;s/.sha//')
+            scan_image "$imagewithouttag@$arch_sha" "$arch"
+          done
+        else
+          echo "No per-arch manifest files found, scanning image directly."
+          scan_image "$IMAGE" "image-index"
+        fi
     - name: proccess-output
       image: quay.io/konflux-ci/konflux-test:v1.5.5@sha256:affed3aa04d6b27a0d2eacb99062b9060a82c2336a1db5acd4640a5043e08257
       env:
@@ -180,8 +210,13 @@ spec:
         . /utils.sh
 
 
-        jq -s -f /parse_to_cve_oriented_output.jq /tekton/home/rox-output.json | tee /tekton/home/pre-parsed-rox-output.json
-        jq '{roxctl_new: .}' /tekton/home/pre-parsed-rox-output.json > /tekton/home/parsed-rox-output.json
+        for rox_file in /tekton/home/rox-output-*.json; do
+          if [ -e "$rox_file" ]; then
+            arch=$(basename "$rox_file" | sed 's/rox-output-//;s/.json//')
+            jq -s -f /parse_to_cve_oriented_output.jq "$rox_file" | tee "/tekton/home/pre-parsed-rox-output-${arch}.json"
+            jq '{roxctl_new: .}' "/tekton/home/pre-parsed-rox-output-${arch}.json" > "/tekton/home/parsed-rox-output-${arch}.json"
+          fi
+        done
 
         images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
         digests_processed=()
@@ -226,6 +261,7 @@ spec:
 
         if ! compgen -G "rox-output*.json" > /dev/null; then
           echo 'No Rox reports generated. Skipping upload.'
+          echo "{}" > reports.json
           exit 0
         fi
 
@@ -234,25 +270,30 @@ spec:
 
         repository="${IMAGE_URL/:*/}"
 
-        arch() {
-          report_file="$1"
-          arch="${report_file/*-}"
-          echo "${arch/.json/}"
-        }
-
         MEDIA_TYPE='application/vnd.redhat.rox-report+json'
 
-        reports_json=""
+        reports_json="{}"
+        if ! compgen -G "image-manifest-*.sha" > /dev/null; then
+          echo "No image manifest files found. Skipping report attachment."
+          echo "${reports_json}" > reports.json
+          exit 0
+        fi
         for f in image-manifest-*.sha; do
-          digest=$(cat "image-manifest-$(arch "$f")")
+          arch_name=$(basename "$f" | sed 's/image-manifest-//;s/.sha//')
+          digest=$(cat "$f")
+          report_file="parsed-rox-output-${arch_name}.json"
+          if [ ! -f "$report_file" ]; then
+            echo "Report file $report_file not found for arch $arch_name, skipping."
+            continue
+          fi
           image_ref="${repository}@${digest}"
           mkdir -p /tmp/auth && select-oci-auth "${image_ref}" > /tmp/auth/config.json
           export DOCKER_CONFIG=/tmp/auth
-          echo "Attaching $f to ${image_ref}"
+          echo "Attaching $report_file to ${image_ref}"
           if ! report_digest="$(retry oras attach --no-tty --format go-template='{{.digest}}' --registry-config \
-            "/tmp/auth/config.json" --artifact-type "${MEDIA_TYPE}" "${image_ref}" "$f:${MEDIA_TYPE}")"
+            "/tmp/auth/config.json" --artifact-type "${MEDIA_TYPE}" "${image_ref}" "$report_file:${MEDIA_TYPE}")"
           then
-            echo "Failed to attach ${f} to ${image_ref}"
+            echo "Failed to attach ${report_file} to ${image_ref}"
             exit 1
           fi
           # shellcheck disable=SC2016
