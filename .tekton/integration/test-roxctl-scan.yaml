@@ -26,7 +26,7 @@ spec:
           - name: skip-upload
             value: "true"
           - name: image-url
-            value: "quay.io/konflux-ci/konflux-test:v1.5.4"
+            value: "quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b"
           - name: image-digest
             value: "sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b"
       - name: check-results
@@ -51,7 +51,7 @@ spec:
             - name: TEST_OUTPUT
           steps:
             - name: validate-results
-              image: quay.io/konflux-ci/konflux-test:v1.5.4
+              image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
               env:
                 - name: TEST_OUTPUT
                   value: "$(params.TEST_OUTPUT)"
@@ -62,7 +62,7 @@ spec:
                 - name: REPORTS
                   value: "$(params.REPORTS)"
                 - name: IMAGE_URL
-                  value: "quay.io/konflux-ci/konflux-test:v1.5.4"
+                  value: "quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b"
               script: |
                 #!/usr/bin/env bash
                 set -euo pipefail
