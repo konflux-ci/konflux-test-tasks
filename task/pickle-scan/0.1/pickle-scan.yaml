@@ -46,7 +46,7 @@ spec:
         readOnly: true
   steps:
     - name: pickle-scan
-      image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+      image: quay.io/konflux-ci/konflux-test:v1.5.6@sha256:365b172d2a8a145406f028d0a94a77b489fbdf9d84e5bd9529b1c3ad72f077b1
       computeResources:
         limits:
           memory: 2Gi
@@ -164,7 +164,7 @@ spec:
           "${imageanddigest}" \
           "picklescan-report.json:${MEDIA_TYPE}"
     - name: evaluate-policy
-      image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+      image: quay.io/konflux-ci/konflux-test:v1.5.6@sha256:365b172d2a8a145406f028d0a94a77b489fbdf9d84e5bd9529b1c3ad72f077b1
       computeResources:
         limits:
           memory: 256Mi
