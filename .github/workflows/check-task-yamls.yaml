@@ -12,17 +12,17 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Create k8s Kind Cluster
-        uses: helm/kind-action@v1.14.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           cluster_name: kind
 
       - name: Set up Tekton
-        uses: tektoncd/actions/setup-tektoncd@main
+        uses: tektoncd/actions/setup-tektoncd@2b126ef971bbfda195d8a6c9b7c4eb3bfda452bf # main
         with:
           pipeline_version: latest
 
