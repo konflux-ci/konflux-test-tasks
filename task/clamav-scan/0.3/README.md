@@ -10,6 +10,14 @@ The logs will provide both the version of ClamAV and the version of the database
 On this version clamscan is replaced by clamdscan which can scan an image in parallel (8 threads by default).
 Besides that, if the pipeline task uses a matrix configuration for the task, each arch will create a separate TaskRun, running in parallel.
 
+## Version 0.3.2:
+For container images, the extract step lists each OCI layer and skips layers
+that contain only unscannable model-weight files (`.safetensors`, `.gguf`,
+`.ggml`). Those layers are still downloaded so filenames can be listed; they
+are not unpacked or passed to `clamdscan`. Mixed or unknown layers, and any
+layer that cannot be listed, are extracted as before. OCI artifacts are
+unchanged. Skipped layers are recorded in the ClamAV log.
+
 ## --max-filesize: 
 Is set to the same value as the default value according to the ClamAV official Documentation.
 

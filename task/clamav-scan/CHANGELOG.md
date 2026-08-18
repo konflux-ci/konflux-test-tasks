@@ -2,6 +2,15 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.3.2
+
+### Added
+
+- Skip extracting OCI layers that contain only unscannable model-weight files
+  (`.safetensors`, `.gguf`, `.ggml`). Other layers are still extracted and
+  scanned. If layer listing fails, the task falls back to extracting the
+  full image.
+
 ## 0.3
 
 ### Changed
