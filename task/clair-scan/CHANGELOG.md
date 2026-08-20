@@ -11,6 +11,12 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.4
+
+### Changed 
+
+0.4 is a dummy version used to facilitate the migration from clair-scan 0.3 to roxctl-scan 0.1
+
 ## 0.3.2
 
 ### Changed
