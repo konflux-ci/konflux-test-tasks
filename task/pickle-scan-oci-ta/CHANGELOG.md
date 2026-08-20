@@ -2,6 +2,15 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.1.2
+
+### Added
+
+- Optional `FETCH_EXTRA_ARTIFACTS` and `EXTRA_ARTIFACT_FILTER` parameters
+  to fetch pickle-like files (`.pkl`, `.pickle`, `.pt`, `.pth`, `.bin`,
+  `.ckpt`, `.joblib`) from `image-url@image-digest` into the scan tree
+  alongside `SOURCE_ARTIFACT`. Default remains off.
+
 ## 0.1.1
 
 ### Removed

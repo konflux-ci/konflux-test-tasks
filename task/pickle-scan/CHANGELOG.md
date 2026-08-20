@@ -2,6 +2,13 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.1.2
+
+### Changed
+
+- Version aligned with pickle-scan-oci-ta 0.1.2. No functional changes
+  to the workspace task.
+
 ## 0.1.1
 
 ### Removed
