@@ -36,3 +36,10 @@ A Trusted Artifacts variant of this task,
 [pickle-scan-oci-ta](../../pickle-scan-oci-ta/0.1/pickle-scan-oci-ta.yaml),
 consumes the files to scan via the `SOURCE_ARTIFACT` parameter instead of
 the `source` workspace.
+
+When the model files live in the scanned OCI artifact (for example after
+`oci-copy`) rather than in the git tree restored from `SOURCE_ARTIFACT`,
+set `FETCH_EXTRA_ARTIFACTS` to `"true"`. Matching blobs are fetched from
+`image-url@image-digest` into the scan directory. `EXTRA_ARTIFACT_FILTER`
+defaults to pickle-like files (`.pkl`, `.pickle`, `.pt`, `.pth`, `.bin`,
+`.ckpt`, `.joblib`). Fetch is skipped for standard container images.
