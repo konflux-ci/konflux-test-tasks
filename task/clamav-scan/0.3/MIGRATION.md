@@ -1,3 +1,15 @@
+# Migration from 0.3.1 to 0.3.2
+
+Version 0.3.2 skips unpacking OCI layers that contain only model-weight files
+ClamAV cannot scan (`.safetensors`, `.gguf`, `.ggml`). Task parameters and
+results are unchanged.
+
+## Action from users
+
+No action is required. MintMaker will bump the task bundle reference.
+
+---
+
 # Migration from 0.2 to 0.3
 
 Version 0.3:

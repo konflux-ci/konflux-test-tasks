@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.3.1"
+    app.kubernetes.io/version: "0.3.2"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "virus, konflux"
@@ -149,6 +149,34 @@ spec:
 
             cat "/work/logs/clamscan-ec-test-${suffix}.json"
           fi
+        }
+
+        # Skip extract only when every real file is a known weight type.
+        is_weight_filename() {
+          local base="$1"
+          case "$base" in
+            *.safetensors|*.gguf|*.ggml) return 0 ;;
+            *) return 1 ;;
+          esac
+        }
+
+        # listing = stdout of: oc image extract --dry-run
+        is_weight_only_layer() {
+          local listing="$1"
+          local mode entry base
+          # Fail closed: empty stdout is not evidence the layer is weight-only.
+          [[ -z "${listing}" ]] && return 1
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            mode=$(awk '{print $2}' <<< "$line")
+            [[ "$mode" == d* ]] && continue
+            [[ "$line" == *" -> "* ]] && return 1
+            entry=$(awk '{print $NF}' <<< "$line")
+            base=$(basename "$entry")
+            [[ "$base" == .wh.* ]] && continue
+            is_weight_filename "$base" || return 1
+          done <<< "$listing"
+          return 0
         }
 
         # Detect artifact type: container image vs OCI artifact
@@ -301,14 +329,52 @@ spec:
             mkdir -p "$destination"
             arch_imageanddigest="${imagewithouttag}@${arch_sha}"
 
-            echo "Running \"oc image extract\" on image of arch $arch"
-            if ! retry oc image extract --confirm --only-files=true --registry-config ~/.docker/config.json "$arch_imageanddigest" --path="/:${destination}" --filter-by-os="linux/${arch}"; then
-              echo "Unable to extract image for arch $arch. Skipping ClamAV scan!"
-              exit 0
+            echo "Inspecting layers for arch $arch"
+            skip_log=""
+            layer_digests=$(skopeo inspect --raw --authfile ~/.docker/config.json \
+              "docker://${arch_imageanddigest}" | jq -r '.layers[]?.digest // empty') || layer_digests=""
+
+            if [ -z "${layer_digests// }" ]; then
+              echo "Could not list layers; extracting full image"
+              if ! retry oc image extract --confirm --only-files=true \
+                --registry-config ~/.docker/config.json "$arch_imageanddigest" \
+                --path="/:${destination}" --filter-by-os="linux/${arch}"; then
+                echo "Unable to extract image for arch $arch. Skipping ClamAV scan!"
+                exit 0
+              fi
+            else
+              skip_log="/work/logs/skipped-layers-${arch}.log"
+              : > "$skip_log"
+              while read -r digest; do
+                [ -z "$digest" ] && continue
+                echo "Listing layer ${digest}"
+                if listing=$(retry oc image extract --dry-run --confirm \
+                  --registry-config ~/.docker/config.json \
+                  "${arch_imageanddigest}[~${digest}]" \
+                  --path="/:${destination}" --filter-by-os="linux/${arch}"); then
+                  if is_weight_only_layer "${listing}"; then
+                    echo "Skipping unscannable weight layer ${digest}" | tee -a "$skip_log"
+                    continue
+                  fi
+                else
+                  echo "Failed to list layer ${digest}; extracting it"
+                fi
+                if ! retry oc image extract --confirm --only-files=true \
+                  --registry-config ~/.docker/config.json \
+                  "${arch_imageanddigest}[~${digest}]" \
+                  --path="/:${destination}" --filter-by-os="linux/${arch}"; then
+                  echo "Unable to extract layer ${digest} for arch $arch. Skipping ClamAV scan!"
+                  exit 0
+                fi
+              done <<< "$layer_digests"
             fi
 
             # Scan and process container image for this architecture
             scan_and_process "${destination}" "$arch" "$arch_sha" "Scanning image for arch $arch"
+
+            if [ -s "${skip_log}" ]; then
+              cat "$skip_log" >> "/work/logs/clamscan-result-${arch}.log"
+            fi
           done < <(echo "$image_manifests" | jq -r 'to_entries[] | "\(.key) \(.value)"')
         fi
 
