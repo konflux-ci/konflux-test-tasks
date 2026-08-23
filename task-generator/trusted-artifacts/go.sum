@@ -150,8 +150,8 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-github.com/tektoncd/pipeline v1.14.0 h1:1jxq2oJnQ3t1MNZ3QntJ9vVTMP3XyHOAmfg3SCVilVc=
-github.com/tektoncd/pipeline v1.14.0/go.mod h1:02XVcI1djpd6APKLX7JdnUddiVuwulCTWamQxlNF5CI=
+github.com/tektoncd/pipeline v1.15.0 h1:ZGboFUaEdpYurZWqeGT5rn9e6qmomGL/gLSKhHp2vvQ=
+github.com/tektoncd/pipeline v1.15.0/go.mod h1:HghtkZ1D9b91o0YiXABDUd+c2C6R4kbk+PumnHqs3Bk=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 github.com/xlab/treeprint v1.2.0 h1:HzHnuAF1plUN2zGlAFHbSQP2qJ0ZAD3XF5XD7OesXRQ=
@@ -254,8 +254,8 @@ k8s.io/kube-openapi v0.0.0-20260706235625-cdb1db5517a0 h1:CVjOUCTXINUThEmDs25FNS
 k8s.io/kube-openapi v0.0.0-20260706235625-cdb1db5517a0/go.mod h1:rcZ+P5cEvHQB+m154WBOatIGBgOEPjzmLkXjkHfg3ms=
 k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 h1:jVkFFVfXdXP74B/zbO3hM3hpSFD0xvhQ5U686DPurkE=
 k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3/go.mod h1:M2s5JB1lIYP3jzZdorPLHXIPJzt9vv2muW5a6L9DtNM=
-knative.dev/pkg v0.0.0-20260531000007-52dbd5ece63f h1:HLMi3cN9wbV9hdbu4fX6lX/VciVkAr3XLu8BL10K1E0=
-knative.dev/pkg v0.0.0-20260531000007-52dbd5ece63f/go.mod h1:EZeB2nBW4QcpZuCPB5a/UnoVIH2N+5z5fwNw1PUeqMg=
+knative.dev/pkg v0.0.0-20260622140654-39ebae2ee2dc h1:i2GrJuRdTFd4sNWocwefVGwuSOkOPjtadEWRTiGsEOY=
+knative.dev/pkg v0.0.0-20260622140654-39ebae2ee2dc/go.mod h1:Ve19ZYW7DwIfQL4oCT9t9zmPp4egv0KacKVPXUcivDQ=
 mvdan.cc/sh/v3 v3.13.1 h1:DP3TfgZhDkT7lerUdnp6PTGKyxxzz6T+cOlY/xEvfWk=
 mvdan.cc/sh/v3 v3.13.1/go.mod h1:lXJ8SexMvEVcHCoDvAGLZgFJ9Wsm2sulmoNEXGhYZD0=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=

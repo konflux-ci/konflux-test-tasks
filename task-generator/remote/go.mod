@@ -3,7 +3,7 @@ module github.com/konflux-ci/build-definitions/task-generator/remote
 go 1.26.4
 
 require (
-	github.com/tektoncd/pipeline v1.14.0
+	github.com/tektoncd/pipeline v1.15.0
 	k8s.io/api v0.36.3
 	k8s.io/apimachinery v0.36.3
 	k8s.io/cli-runtime v0.36.3
@@ -91,7 +91,7 @@ require (
 	k8s.io/client-go v0.36.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20260706235625-cdb1db5517a0 // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
-	knative.dev/pkg v0.0.0-20260531000007-52dbd5ece63f // indirect
+	knative.dev/pkg v0.0.0-20260622140654-39ebae2ee2dc // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
