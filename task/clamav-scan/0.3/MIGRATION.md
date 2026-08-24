@@ -1,3 +1,19 @@
+# Migration from 0.3.2 to 0.3.3
+
+Version 0.3.3 skips **downloading** OCI layers when the image manifest already
+names a model-weight file (olot annotations `org.opencontainers.image.title` /
+`olot.layer.content.inlayerpath` ending in `.safetensors`, `.gguf`, `.ggml`,
+`.pt`, `.pth`, `.onnx`, `.onnx_data`, or `.onnx_data_*`). Any other annotated
+layer is skipped when the OCI descriptor `size` is at least 2000MiB.
+Layers without those annotations still use `--dry-run` listing as in 0.3.2
+(same name list). Task parameters and results are unchanged.
+
+## Action from users
+
+No action is required. MintMaker will bump the task bundle reference.
+
+---
+
 # Migration from 0.3.1 to 0.3.2
 
 Version 0.3.2 skips unpacking OCI layers that contain only model-weight files
