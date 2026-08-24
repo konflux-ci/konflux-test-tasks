@@ -10,6 +10,11 @@ If that's not something you ever plan to do, consider removing this section.
 -->
 
 *Nothing yet.*
+## 0.4.1
+
+### Changed 
+
+Allign script and task version.
 
 ## 0.4
 

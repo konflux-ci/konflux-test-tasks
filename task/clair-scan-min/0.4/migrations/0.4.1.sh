@@ -55,14 +55,3 @@ pmt modify -f "$pipeline_file" task "$NEW_TASK_NAME" remove-param image-platform
 pmt modify -f "$pipeline_file" task "$NEW_TASK_NAME" remove-param ca-trust-config-map-name
 pmt modify -f "$pipeline_file" task "$NEW_TASK_NAME" remove-param ca-trust-config-map-key
 pmt modify -f "$pipeline_file" task "$NEW_TASK_NAME" remove-param skip-oci-attach-report
-if [[ "$OLD_TASK_PATH" == ".spec.pipelineSpec.tasks" ]]; then
-  TASK_INDEX=$(yq '.spec.pipelineSpec.tasks | to_entries | .[] | select(.value.name == "'"$NEW_TASK_NAME"'") | .key' "$pipeline_file")
-  if yq "$OLD_TASK_PATH"'['"$TASK_INDEX"'] | has("matrix")' "$pipeline_file" | grep -q "true"; then
-      pmt modify -f "$pipeline_file" generic remove '["spec", "pipelineSpec", "tasks", '"$TASK_INDEX"', "matrix"]'
-  fi
-else
-  TASK_INDEX=$(yq '.spec.tasks | to_entries | .[] | select(.value.name == "'"$NEW_TASK_NAME"'") | .key' "$pipeline_file")
-  if yq "$OLD_TASK_PATH"'['"$TASK_INDEX"'] | has("matrix")' "$pipeline_file" | grep -q "true"; then
-      pmt modify -f "$pipeline_file" generic remove '["spec", "tasks", '"$TASK_INDEX"', "matrix"]'
-  fi
-fi
