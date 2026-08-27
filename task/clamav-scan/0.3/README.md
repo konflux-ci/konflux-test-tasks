@@ -18,6 +18,16 @@ are not unpacked or passed to `clamdscan`. Mixed or unknown layers, and any
 layer that cannot be listed, are extracted as before. OCI artifacts are
 unchanged. Skipped layers are recorded in the ClamAV log.
 
+## Version 0.3.3:
+When an OCI layer descriptor already names the file (olot ModelCar annotations
+`org.opencontainers.image.title` / `olot.layer.content.inlayerpath`), weight
+layers (`.safetensors`, `.gguf`, `.ggml`, `.pt`, `.pth`, `.onnx`, `.onnx_data`
+/ `.onnx_data_*`) are skipped without downloading the blob. Any other
+annotated layer is skipped when the descriptor `size` is at least 2000MiB
+(slightly under ClamAV's ~2GiB MaxFileSize), regardless of extension.
+`--dry-run` listing is used when those annotations are absent (same name
+list).
+
 ## --max-filesize: 
 Is set to the same value as the default value according to the ClamAV official Documentation.
 

@@ -6,7 +6,7 @@ metadata:
     tekton.dev/pipelines.minVersion: 0.12.1
     tekton.dev/tags: virus, konflux
   labels:
-    app.kubernetes.io/version: 0.3.2
+    app.kubernetes.io/version: 0.3.3
   name: clamav-scan-min
 spec:
   description: Scans the content of container images and OCI artifacts for viruses,
@@ -148,10 +148,13 @@ spec:
       is_weight_filename() {
         local base="$1"
         case "$base" in
-          *.safetensors|*.gguf|*.ggml) return 0 ;;
+          *.safetensors|*.gguf|*.ggml|*.pt|*.pth|*.onnx|*.onnx_data|*.onnx_data_*) return 0 ;;
           *) return 1 ;;
         esac
       }
+
+      # 2000MiB: slightly under ClamAV's ~2GiB MaxFileSize (0.2 used --max-filesize=2000M).
+      CLAMAV_SKIP_BLOB_BYTES=2097152000
 
       # listing = stdout of: oc image extract --dry-run
       is_weight_only_layer() {
@@ -170,6 +173,17 @@ spec:
           is_weight_filename "$base" || return 1
         done <<< "$listing"
         return 0
+      }
+
+      # title/path from the OCI layer descriptor (olot ModelCars). Empty is not a skip.
+      layer_annotation_is_weight() {
+        local title="$1" inpath="$2" base candidate
+        for candidate in "$title" "$inpath"; do
+          [ -z "$candidate" ] && continue
+          base=$(basename "$candidate")
+          is_weight_filename "$base" && return 0
+        done
+        return 1
       }
 
       # Detect artifact type: container image vs OCI artifact
@@ -324,10 +338,16 @@ spec:
 
           echo "Inspecting layers for arch $arch"
           skip_log=""
-          layer_digests=$(skopeo inspect --raw --authfile ~/.docker/config.json \
-            "docker://${arch_imageanddigest}" | jq -r '.layers[]?.digest // empty') || layer_digests=""
+          layers=$(skopeo inspect --raw --authfile ~/.docker/config.json \
+            "docker://${arch_imageanddigest}" | jq -c '
+              .layers[]? | {
+                digest: (.digest // ""),
+                size: ((.size // 0) | if type == "number" then . else 0 end),
+                title: (.annotations["org.opencontainers.image.title"] // ""),
+                inpath: (.annotations["olot.layer.content.inlayerpath"] // "")
+              }') || layers=""
 
-          if [ -z "${layer_digests// }" ]; then
+          if [ -z "${layers}" ]; then
             echo "Could not list layers; extracting full image"
             if ! retry oc image extract --confirm --only-files=true \
               --registry-config ~/.docker/config.json "$arch_imageanddigest" \
@@ -338,20 +358,39 @@ spec:
           else
             skip_log="/work/logs/skipped-layers-${arch}.log"
             : > "$skip_log"
-            while read -r digest; do
+            while IFS= read -r layer_json; do
+              [ -z "$layer_json" ] && continue
+              digest=$(jq -r '.digest' <<< "$layer_json")
+              size=$(jq -r '.size' <<< "$layer_json")
+              title=$(jq -r '.title' <<< "$layer_json")
+              inpath=$(jq -r '.inpath' <<< "$layer_json")
               [ -z "$digest" ] && continue
-              echo "Listing layer ${digest}"
-              if listing=$(retry oc image extract --dry-run --confirm \
-                --registry-config ~/.docker/config.json \
-                "${arch_imageanddigest}[~${digest}]" \
-                --path="/:${destination}" --filter-by-os="linux/${arch}"); then
-                if is_weight_only_layer "${listing}"; then
-                  echo "Skipping unscannable weight layer ${digest}" | tee -a "$skip_log"
-                  continue
-                fi
-              else
-                echo "Failed to list layer ${digest}; extracting it"
+
+              if layer_annotation_is_weight "$title" "$inpath"; then
+                echo "Skipping unscannable weight layer ${digest} (manifest ${title:-$inpath})" | tee -a "$skip_log"
+                continue
               fi
+
+              if { [ -n "$title" ] || [ -n "$inpath" ]; } && [ "${size}" -ge "${CLAMAV_SKIP_BLOB_BYTES}" ]; then
+                echo "Skipping unscannable layer ${digest} (manifest ${title:-$inpath}, size ${size})" | tee -a "$skip_log"
+                continue
+              fi
+
+              if [ -z "$title" ] && [ -z "$inpath" ]; then
+                echo "Listing layer ${digest}"
+                if listing=$(retry oc image extract --dry-run --confirm \
+                  --registry-config ~/.docker/config.json \
+                  "${arch_imageanddigest}[~${digest}]" \
+                  --path="/:${destination}" --filter-by-os="linux/${arch}"); then
+                  if is_weight_only_layer "${listing}"; then
+                    echo "Skipping unscannable weight layer ${digest}" | tee -a "$skip_log"
+                    continue
+                  fi
+                else
+                  echo "Failed to list layer ${digest}; extracting it"
+                fi
+              fi
+
               if ! retry oc image extract --confirm --only-files=true \
                 --registry-config ~/.docker/config.json \
                 "${arch_imageanddigest}[~${digest}]" \
@@ -359,7 +398,7 @@ spec:
                 echo "Unable to extract layer ${digest} for arch $arch. Skipping ClamAV scan!"
                 exit 0
               fi
-            done <<< "$layer_digests"
+            done <<< "$layers"
           fi
 
           # Scan and process container image for this architecture
