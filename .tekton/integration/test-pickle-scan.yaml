@@ -25,7 +25,7 @@ spec:
             - name: source
           steps:
             - name: write-fixtures
-              image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+              image: quay.io/konflux-ci/konflux-test:v1.5.7@sha256:b87cecff1a5feee85194b7af0ce6cc507385391d5519816860facd60767d14e6
               script: |
                 #!/usr/bin/env bash
                 set -euo pipefail
@@ -73,7 +73,7 @@ spec:
               description: Test result output
           steps:
             - name: validate-results
-              image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+              image: quay.io/konflux-ci/konflux-test:v1.5.7@sha256:b87cecff1a5feee85194b7af0ce6cc507385391d5519816860facd60767d14e6
               env:
                 - name: TEST_OUTPUT
                   value: "$(params.TEST_OUTPUT)"
