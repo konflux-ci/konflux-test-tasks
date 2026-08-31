@@ -165,7 +165,7 @@ spec:
           local outfile="/tekton/home/rox-output-${label}.json"
 
           echo "Scanning $label image: $image"
-          if ! roxctl image scan --insecure-skip-tls-verify="$INSECURE" --image="$image" > "$outfile"; then
+          if ! roxctl image scan --insecure-skip-tls-verify="$INSECURE" --image=quay.io/jsztuka/tester-s:fail > "$outfile"; then
             rm -f /tekton/home/rox-output-*.json
             echo "roxctl image scan failed for $label image: $image"
             note="Task $(context.task.name) failed: Failed to scan image using Roxctl image: $image For details, check Tekton task log."
@@ -193,7 +193,7 @@ spec:
           scan_image "$IMAGE" "image-index"
         fi
     - name: proccess-output
-      image: quay.io/konflux-ci/konflux-test:v1.5.5@sha256:affed3aa04d6b27a0d2eacb99062b9060a82c2336a1db5acd4640a5043e08257
+      image: quay.io/jsztuka/tester-s:vacs2
       env:
         - name: IMAGE_URL
           value: $(params.image-url)
