@@ -51,7 +51,7 @@ spec:
         readOnly: true
   steps:
     - name: get-vulnerabilities
-      image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+      image: quay.io/konflux-ci/konflux-test:v1.5.8@sha256:ce93e7ff1618deda40a66d90289d8fee1bf1ac151c06f1defd33d2a56dbd2b94
       computeResources:
         limits:
           memory: 2Gi
@@ -255,7 +255,7 @@ spec:
         done
         echo "${reports_json}" > reports.json
     - name: conftest-vulnerabilities
-      image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+      image: quay.io/konflux-ci/konflux-test:v1.5.8@sha256:ce93e7ff1618deda40a66d90289d8fee1bf1ac151c06f1defd33d2a56dbd2b94
       computeResources:
         limits:
           memory: 256Mi
