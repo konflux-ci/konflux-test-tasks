@@ -92,7 +92,7 @@ spec:
         - --insecure-skip-tls-verify=$(INSECURE)
         - --token-file=/service-account-token/token
     - name: get-image-manifests
-      image: quay.io/konflux-ci/konflux-test:v1.5.5@sha256:affed3aa04d6b27a0d2eacb99062b9060a82c2336a1db5acd4640a5043e08257
+      image: quay.io/konflux-ci/konflux-test:v1.5.8@sha256:ce93e7ff1618deda40a66d90289d8fee1bf1ac151c06f1defd33d2a56dbd2b94
       # the roxctl image neither has skopeo or jq installed. Hence, we create an extra step to get the image manifest digests
       computeResources:
         limits:
@@ -193,7 +193,7 @@ spec:
           scan_image "$IMAGE" "image-index"
         fi
     - name: proccess-output
-      image: quay.io/konflux-ci/konflux-test:v1.5.5@sha256:affed3aa04d6b27a0d2eacb99062b9060a82c2336a1db5acd4640a5043e08257
+      image: quay.io/konflux-ci/konflux-test:v1.5.8@sha256:ce93e7ff1618deda40a66d90289d8fee1bf1ac151c06f1defd33d2a56dbd2b94
       env:
         - name: IMAGE_URL
           value: $(params.image-url)
@@ -306,7 +306,7 @@ spec:
         echo "${reports_json}" > reports.json
         cat /tekton/home/reports.json > "$(results.REPORTS.path)"
     - name: conftest-vulnerabilities
-      image: quay.io/konflux-ci/konflux-test:v1.5.5@sha256:affed3aa04d6b27a0d2eacb99062b9060a82c2336a1db5acd4640a5043e08257
+      image: quay.io/konflux-ci/konflux-test:v1.5.8@sha256:ce93e7ff1618deda40a66d90289d8fee1bf1ac151c06f1defd33d2a56dbd2b94
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       computeResources:
