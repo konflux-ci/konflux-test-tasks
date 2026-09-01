@@ -72,12 +72,12 @@ spec:
         name: workdir
   steps:
     - name: use-trusted-artifact
-      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:09c323a74915b57c3eeb28114820d0842e94779dec66bd9f645c959c5b2ea730
+      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:aa0807b76807f245bb19f229ec7e76b25f9458d23934d9d1ec0721b8fb50d8df
       args:
         - use
         - $(params.SOURCE_ARTIFACT)=/var/workdir/source
     - name: fetch-extra-artifacts
-      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:09c323a74915b57c3eeb28114820d0842e94779dec66bd9f645c959c5b2ea730
+      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:aa0807b76807f245bb19f229ec7e76b25f9458d23934d9d1ec0721b8fb50d8df
       workingDir: /var/workdir
       env:
         - name: FETCH_EXTRA_ARTIFACTS
@@ -156,7 +156,7 @@ spec:
           cpu: 100m
           memory: 512Mi
     - name: pickle-scan
-      image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+      image: quay.io/konflux-ci/konflux-test:v1.5.8@sha256:ce93e7ff1618deda40a66d90289d8fee1bf1ac151c06f1defd33d2a56dbd2b94
       workingDir: /tekton/home
       env:
         - name: SOURCE_PATH
@@ -272,7 +272,7 @@ spec:
           cpu: 100m
           memory: 256Mi
     - name: evaluate-policy
-      image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+      image: quay.io/konflux-ci/konflux-test:v1.5.8@sha256:ce93e7ff1618deda40a66d90289d8fee1bf1ac151c06f1defd33d2a56dbd2b94
       workingDir: /tekton/home
       env:
         - name: IMAGE_URL
