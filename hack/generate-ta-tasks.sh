@@ -20,7 +20,8 @@ ROOT_DIR="$(git rev-parse --show-toplevel)"
 TASK_DIR="$(realpath "${ROOT_DIR}/task")"
 : "${TRUSTED_ARTIFACTS=github.com/konflux-ci/build-definitions/task-generator/trusted-artifacts@latest}"
 
-tashdir="$(mktemp --dry-run)"
+tashdir="$(mktemp -d)"
+trap 'rm -rf "${tashdir}"' EXIT
 if [[ -d "${TRUSTED_ARTIFACTS}" ]]; then
     tashbin=${tashdir}/trusted-artifacts
     GOTOOLCHAIN=auto GOSUMDB=sum.golang.org go build -C "${TRUSTED_ARTIFACTS}" -o "${tashbin}"
@@ -33,7 +34,6 @@ else
     fi
     tashbin=${bin[0]}
 fi
-trap 'rm -r "${tashdir}"' EXIT
 
 tash() {
   "${tashbin}" "$@"
@@ -59,11 +59,40 @@ fi
 
 cd "${TASK_DIR}"
 for recipe_path in **/recipe.yaml; do
-    task_path="${recipe_path%/recipe.yaml}/$(basename "${recipe_path%/*/*}").yaml"
+    # tasks are stored at task/${task_name}/...
+    task_name="${recipe_path%%/*}"
+    task_path="${recipe_path%/*}/${task_name}.yaml"
     sponge=$(tash "${TASK_DIR}/${recipe_path}")
     echo "${sponge}" > "${task_path}"
     if ! git diff --quiet HEAD "${task_path}"; then
         emit "task/${task_path}" "${msg}"
+    fi
+
+    recipe_dir="${TASK_DIR}/${recipe_path%/*}"
+    base=$(yq -r '.base' "${recipe_dir}/recipe.yaml")
+    base_dir="$(cd "${recipe_dir}" && cd "$(dirname "${base}")" && pwd)"
+    base_yaml="${base_dir}/$(basename "${base}")"
+    version=$(yq -r '.metadata.labels."app.kubernetes.io/version"' "${base_yaml}")
+    src="${base_dir}/migrations/${version}.sh"
+    dst="${recipe_dir}/migrations/${version}.sh"
+    # Sync marker in the base migration (see create-task-migration.sh / SHARED-CI.md):
+    #   # generate-ta-tasks: sync-oci-ta-migration=true
+    #   # generate-ta-tasks: sync-oci-ta-migration=false
+    if [[ -f "${src}" ]]; then
+        sync_migration=false
+        if [[ ! -f "${dst}" ]]; then
+            sync_migration=true
+        elif grep -qF '# generate-ta-tasks: sync-oci-ta-migration=true' "${src}"; then
+            sync_migration=true
+        fi
+        if [[ "${sync_migration}" == true ]]; then
+            mkdir -p "${recipe_dir}/migrations"
+            cp "${src}" "${dst}"
+            if ! git diff --quiet HEAD -- "${dst}" \
+                || [[ -n "$(git ls-files --others --exclude-standard -- "${dst}")" ]]; then
+                emit "task/${recipe_path%/*}/migrations/${version}.sh" "${msg}"
+            fi
+        fi
     fi
 done
 
