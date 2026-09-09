@@ -72,12 +72,12 @@ spec:
         name: workdir
   steps:
     - name: use-trusted-artifact
-      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:15c5eeb451924ddfc9d8680319130fe277df7850728d5c37f13ae3eb9d607249
+      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:bbd95369ff4ac867a05c9343aeed044c9174f21ce62bca017561bc486a68ad23
       args:
         - use
         - $(params.SOURCE_ARTIFACT)=/var/workdir/source
     - name: fetch-extra-artifacts
-      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:15c5eeb451924ddfc9d8680319130fe277df7850728d5c37f13ae3eb9d607249
+      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:bbd95369ff4ac867a05c9343aeed044c9174f21ce62bca017561bc486a68ad23
       workingDir: /var/workdir
       env:
         - name: FETCH_EXTRA_ARTIFACTS
