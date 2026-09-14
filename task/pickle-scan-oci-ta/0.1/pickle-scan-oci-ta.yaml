@@ -14,6 +14,11 @@ spec:
     files are commonly used for Python/ML model serialization and can contain
     arbitrary code execution payloads.
   params:
+    - name: CACHI2_ARTIFACT
+      description: The Trusted Artifact URI pointing to the artifact with
+        the prefetched dependencies.
+      type: string
+      default: ""
     - name: EXTRA_ARTIFACT_FILTER
       description: Extended regex matching org.opencontainers.image.title
         paths in the OCI manifest when FETCH_EXTRA_ARTIFACTS=true.
@@ -72,10 +77,11 @@ spec:
         name: workdir
   steps:
     - name: use-trusted-artifact
-      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:bbd95369ff4ac867a05c9343aeed044c9174f21ce62bca017561bc486a68ad23
+      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:dba00133c3f4d6a7b071c6b83977729da2c4b7469ee5e3e9acdf4ef6d1c6b3e2
       args:
         - use
         - $(params.SOURCE_ARTIFACT)=/var/workdir/source
+        - $(params.CACHI2_ARTIFACT)=/var/workdir/cachi2
     - name: fetch-extra-artifacts
       image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:bbd95369ff4ac867a05c9343aeed044c9174f21ce62bca017561bc486a68ad23
       workingDir: /var/workdir
@@ -161,6 +167,8 @@ spec:
       env:
         - name: SOURCE_PATH
           value: /var/workdir/source
+        - name: CACHI2_PATH
+          value: /var/workdir/cachi2
       script: |
         #!/usr/bin/env bash
         set -euo pipefail
@@ -176,11 +184,23 @@ spec:
           exit 0
         fi
 
-        echo "Running picklescan on $SOURCE_PATH"
-        set +o pipefail
-        picklescan --path "$SOURCE_PATH" 2>&1 | tee /tekton/home/picklescan-output.txt
-        picklescan_exit=${PIPESTATUS[0]}
-        set -o pipefail
+        scan_paths=("$SOURCE_PATH")
+        if [ -d "$CACHI2_PATH" ] && [ -n "$(ls -A "$CACHI2_PATH" 2>/dev/null)" ]; then
+          scan_paths+=("$CACHI2_PATH")
+        fi
+
+        picklescan_exit=0
+        for scan_dir in "${scan_paths[@]}"; do
+          echo "Running picklescan on $scan_dir"
+          set +o pipefail
+          picklescan --path "$scan_dir" 2>&1 | tee -a /tekton/home/picklescan-output.txt
+          exit_code=${PIPESTATUS[0]}
+          set -o pipefail
+
+          if [ "$exit_code" -gt "$picklescan_exit" ]; then
+            picklescan_exit="$exit_code"
+          fi
+        done
 
         if [ "$picklescan_exit" -gt 1 ]; then
           note="Task $(context.task.name) failed: picklescan exited with code $picklescan_exit."

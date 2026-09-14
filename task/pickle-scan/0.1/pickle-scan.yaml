@@ -38,6 +38,9 @@ spec:
   workspaces:
     - name: source
       description: Directory containing model files to scan for malicious pickle content.
+    - name: cachi2
+      description: Directory containing prefetched dependencies to scan for malicious pickle content.
+      optional: true
   stepTemplate:
     volumeMounts:
       - name: trusted-ca
@@ -57,6 +60,8 @@ spec:
       env:
         - name: SOURCE_PATH
           value: $(workspaces.source.path)
+        - name: CACHI2_PATH
+          value: $(workspaces.cachi2.path)
       workingDir: /tekton/home
       securityContext:
         capabilities:
@@ -78,11 +83,23 @@ spec:
           exit 0
         fi
 
-        echo "Running picklescan on $SOURCE_PATH"
-        set +o pipefail
-        picklescan --path "$SOURCE_PATH" 2>&1 | tee /tekton/home/picklescan-output.txt
-        picklescan_exit=${PIPESTATUS[0]}
-        set -o pipefail
+        scan_paths=("$SOURCE_PATH")
+        if [ -d "$CACHI2_PATH" ] && [ -n "$(ls -A "$CACHI2_PATH" 2>/dev/null)" ]; then
+          scan_paths+=("$CACHI2_PATH")
+        fi
+
+        picklescan_exit=0
+        for scan_dir in "${scan_paths[@]}"; do
+          echo "Running picklescan on $scan_dir"
+          set +o pipefail
+          picklescan --path "$scan_dir" 2>&1 | tee -a /tekton/home/picklescan-output.txt
+          exit_code=${PIPESTATUS[0]}
+          set -o pipefail
+
+          if [ "$exit_code" -gt "$picklescan_exit" ]; then
+            picklescan_exit="$exit_code"
+          fi
+        done
 
         if [ "$picklescan_exit" -gt 1 ]; then
           note="Task $(context.task.name) failed: picklescan exited with code $picklescan_exit."
