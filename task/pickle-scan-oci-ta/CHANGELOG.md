@@ -2,6 +2,13 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.1.3
+
+### Added
+
+- Optional `CACHI2_ARTIFACT` parameter for scanning prefetched dependencies
+  alongside `SOURCE_ARTIFACT`
+
 ## 0.1.2
 
 ### Added

@@ -88,44 +88,62 @@ spec:
           scan_paths+=("$CACHI2_PATH")
         fi
 
+        scan_idx=0
         picklescan_exit=0
         for scan_dir in "${scan_paths[@]}"; do
           echo "Running picklescan on $scan_dir"
+          output_file="/tekton/home/picklescan-output-${scan_idx}.txt"
           set +o pipefail
-          picklescan --path "$scan_dir" 2>&1 | tee -a /tekton/home/picklescan-output.txt
+          picklescan --path "$scan_dir" 2>&1 | tee "$output_file"
           exit_code=${PIPESTATUS[0]}
           set -o pipefail
+
+          if [ "$exit_code" -gt 1 ]; then
+            note="Task $(context.task.name) failed: picklescan exited with code $exit_code on $scan_dir."
+            ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+            echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+            touch /tekton/home/pickle-scan-error
+            exit 0
+          fi
+
+          if [ ! -s "$output_file" ]; then
+            note="Task $(context.task.name) failed: picklescan produced no output for $scan_dir."
+            ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+            echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+            touch /tekton/home/pickle-scan-error
+            exit 0
+          fi
 
           if [ "$exit_code" -gt "$picklescan_exit" ]; then
             picklescan_exit="$exit_code"
           fi
+
+          scan_idx=$((scan_idx + 1))
         done
 
-        if [ "$picklescan_exit" -gt 1 ]; then
-          note="Task $(context.task.name) failed: picklescan exited with code $picklescan_exit."
-          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
-          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
-          touch /tekton/home/pickle-scan-error
-          exit 0
-        fi
+        report_files=()
+        for idx in $(seq 0 $((scan_idx - 1))); do
+          output_file="/tekton/home/picklescan-output-${idx}.txt"
+          report_file="/tekton/home/picklescan-report-${idx}.json"
+          parse_picklescan_output "$output_file" > "$report_file"
 
-        if [ ! -s /tekton/home/picklescan-output.txt ]; then
-          note="Task $(context.task.name) failed: picklescan produced no output."
-          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
-          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
-          touch /tekton/home/pickle-scan-error
-          exit 0
-        fi
+          if ! jq -e '.infected_files and .summary' "$report_file" > /dev/null 2>&1; then
+            note="Task $(context.task.name) failed: picklescan report is missing expected fields."
+            ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+            echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+            touch /tekton/home/pickle-scan-error
+            exit 0
+          fi
 
-        parse_picklescan_output /tekton/home/picklescan-output.txt > /tekton/home/picklescan-report.json
+          report_files+=("$report_file")
+        done
 
-        if ! jq -e '.infected_files and .summary' /tekton/home/picklescan-report.json > /dev/null 2>&1; then
-          note="Task $(context.task.name) failed: picklescan report is missing expected fields."
-          ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
-          echo "${ERROR_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
-          touch /tekton/home/pickle-scan-error
-          exit 0
-        fi
+        jq -s '{
+          infected_files: (map(.infected_files) | add // {}),
+          summary: (reduce .[].summary as $s ({}; . as $acc |
+            $s | to_entries | reduce .[] as $e ($acc;
+              .[$e.key] = ((.[$e.key] // 0) + $e.value))))
+        }' "${report_files[@]}" > /tekton/home/picklescan-report.json
 
         echo "Pickle scan report:"
         cat /tekton/home/picklescan-report.json
