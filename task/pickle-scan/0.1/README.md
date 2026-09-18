@@ -22,6 +22,7 @@ code execution payloads.
 | Name | Description |
 |------|-------------|
 | source | Directory containing model files to scan for malicious pickle content |
+| cachi2 | Directory containing prefetched dependencies to scan for malicious pickle content (optional) |
 
 ## Results
 
@@ -35,7 +36,8 @@ code execution payloads.
 A Trusted Artifacts variant of this task,
 [pickle-scan-oci-ta](../../pickle-scan-oci-ta/0.1/pickle-scan-oci-ta.yaml),
 consumes the files to scan via the `SOURCE_ARTIFACT` parameter instead of
-the `source` workspace.
+the `source` workspace. It also accepts an optional `CACHI2_ARTIFACT`
+parameter for scanning prefetched dependencies alongside the source.
 
 When the model files live in the scanned OCI artifact (for example after
 `oci-copy`) rather than in the git tree restored from `SOURCE_ARTIFACT`,

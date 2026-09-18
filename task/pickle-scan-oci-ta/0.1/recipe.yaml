@@ -2,10 +2,13 @@
 base: ../../pickle-scan/0.1/pickle-scan.yaml
 add:
   - use-source
+  - use-cachi2
 removeWorkspaces:
   - source
+  - cachi2
 replacements:
   workspaces.source.path: /var/workdir/source
+  workspaces.cachi2.path: /var/workdir/cachi2
 description: >-
   Scans OCI artifacts and AI model files for malicious pickle files
   using picklescan. Uses trusted artifacts for source data.
@@ -29,7 +32,7 @@ additionalSteps:
   - at: 1
     name: fetch-extra-artifacts
     # Same pullspec as use-trusted-artifact (oras, select-oci-auth, retry, oras_opts.sh).
-    image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:bbd95369ff4ac867a05c9343aeed044c9174f21ce62bca017561bc486a68ad23
+    image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:dba00133c3f4d6a7b071c6b83977729da2c4b7469ee5e3e9acdf4ef6d1c6b3e2
     workingDir: /var/workdir
     env:
       - name: FETCH_EXTRA_ARTIFACTS

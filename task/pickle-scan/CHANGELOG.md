@@ -2,6 +2,13 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.1.3
+
+### Added
+
+- Optional `cachi2` workspace for scanning prefetched dependencies
+  alongside the source directory
+
 ## 0.1.2
 
 ### Changed
