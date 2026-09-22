@@ -2,10 +2,13 @@
 base: ../../pickle-scan/0.1/pickle-scan.yaml
 add:
   - use-source
+  - use-cachi2
 removeWorkspaces:
   - source
+  - cachi2
 replacements:
   workspaces.source.path: /var/workdir/source
+  workspaces.cachi2.path: /var/workdir/cachi2
 description: >-
   Scans OCI artifacts and AI model files for malicious pickle files
   using picklescan. Uses trusted artifacts for source data.
