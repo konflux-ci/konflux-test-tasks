@@ -1,3 +1,29 @@
+# Migration from 0.3.3 to 0.3.4
+
+Version 0.3.4 improves how archived content is scanned. Instead of handing the
+packed archive blob to clamd (which recurses into it entry-by-entry), the task now
+**pre-extracts every nested archive into a loose file tree** and scans that, so
+clamd scans each file directly. This makes scanning of deeply nested archives
+faster.
+
+Extraction is unconditional: all nested archives (zip/jar/war/ear/tar and
+tar.gz/tar.bz2/tar.xz, detected by content rather than file extension) are unpacked
+in place with `bsdtar` and the resulting loose tree is scanned. There are no
+extraction limits and no new parameters. Extraction is defensive — a corrupt or
+partial archive is left in place for clamd rather than aborting the scan.
+
+This relies on the `clamav-db` image shipping `bsdtar`; that dependency is added in
+the konflux-clamav repo and reaches `quay.io/konflux-ci/clamav-db:latest` via the
+image's normal build/release.
+
+## Action from users
+
+No action is required and there are no new parameters to set. Note that content
+containing very large or decompression-bomb archives is unpacked in full, which
+increases the task's ephemeral disk usage for the duration of the scan.
+
+---
+
 # Migration from 0.3.2 to 0.3.3
 
 Version 0.3.3 skips **downloading** OCI layers when the image manifest already

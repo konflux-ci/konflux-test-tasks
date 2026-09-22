@@ -2,6 +2,21 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.3.4
+
+### Added
+
+- Pre-extract every nested archive into a loose file tree before scanning, so
+  clamd scans each file directly instead of recursing through nested archive
+  layers. This makes scanning of deeply nested archives faster. Extraction uses
+  `bsdtar`, which detects archives (zip/jar/war/ear/tar
+  and tar.gz/tar.bz2/tar.xz) by content rather than extension — important because
+  the OCI `dir:` payload is an extension-less blob — and unpacks them
+  unconditionally with no size/count/depth limits. It is defensive: a corrupt or
+  partial archive is left in place for clamd rather than aborting the scan. No new
+  parameters are introduced. Requires the `clamav-db` image to ship `bsdtar`
+  (added in konflux-clamav).
+
 ## 0.3.3
 
 ### Changed
