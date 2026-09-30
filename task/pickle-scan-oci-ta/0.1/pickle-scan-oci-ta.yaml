@@ -72,12 +72,12 @@ spec:
         name: workdir
   steps:
     - name: use-trusted-artifact
-      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:462c2474e67bd752592678058801b0d27a5ea4852b70e829e3e6c245bdeea348
+      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:e9edc2827213a29c4cbc08b42060f13c454b3a051f47769ea98ea6e92a917293
       args:
         - use
         - $(params.SOURCE_ARTIFACT)=/var/workdir/source
     - name: fetch-extra-artifacts
-      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:462c2474e67bd752592678058801b0d27a5ea4852b70e829e3e6c245bdeea348
+      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:e9edc2827213a29c4cbc08b42060f13c454b3a051f47769ea98ea6e92a917293
       workingDir: /var/workdir
       env:
         - name: FETCH_EXTRA_ARTIFACTS
@@ -228,7 +228,7 @@ spec:
           add:
             - SETFCAP
     - name: oci-attach-report
-      image: quay.io/konflux-ci/task-runner:2.1.0@sha256:c34c933c269e2401bb042fe69e2999cf288331b6586d4f4eca9c845270d9b1f9
+      image: quay.io/konflux-ci/task-runner:3.2.0@sha256:ba5789d2bc04146431e492083c67b86de26d5b17891dc27f67db850a397b66d3
       workingDir: /tekton/home
       env:
         - name: SKIP_OCI_ATTACH_REPORT
