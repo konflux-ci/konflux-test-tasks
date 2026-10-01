@@ -29,7 +29,7 @@ additionalSteps:
   - at: 1
     name: fetch-extra-artifacts
     # Same pullspec as use-trusted-artifact (oras, select-oci-auth, retry, oras_opts.sh).
-    image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:e9edc2827213a29c4cbc08b42060f13c454b3a051f47769ea98ea6e92a917293
+    image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:77695f25dc63ae65760601ca60da23aa241ac9b05fd03b449539d4bc038237b9
     workingDir: /var/workdir
     env:
       - name: FETCH_EXTRA_ARTIFACTS
