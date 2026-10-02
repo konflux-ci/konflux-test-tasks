@@ -11,10 +11,10 @@
 
 ### Changed
 
-- Detect nested archives with a long-lived libarchive reader instead of
-  starting `bsdtar` for every file. Extract archives concurrently while
-  preserving content-based detection and falling back to the previous serial
-  extractor if the accelerated detector is unavailable.
+- Use the accelerated archive extractor supplied by the `clamav-db` image.
+  Extract archives concurrently while preserving content-based detection and
+  falling back to the previous serial extractor if the accelerated utility is
+  unavailable or fails.
 
 ## 0.3.4
 

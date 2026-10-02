@@ -30,11 +30,11 @@ list).
 
 ## Version 0.3.5:
 The new `archive-extraction-mode` parameter selects `legacy` serial extraction
-or `accelerated` detection with a long-lived libarchive reader and concurrent
-extraction. It defaults to `legacy` so existing users keep the previous
-behavior. Concurrent extractions are bounded by `clamd-max-threads`; detection
-remains content-based, and processing falls back to the serial extractor if the
-accelerated implementation fails.
+or the `accelerated` extractor supplied by the `clamav-db` image. It defaults to
+`legacy` so existing users keep the previous behavior. Concurrent extractions
+are bounded by `clamd-max-threads`; detection remains content-based, and
+processing falls back to the serial extractor if the accelerated implementation
+is unavailable or fails.
 
 ## --max-filesize: 
 Is set to the same value as the default value according to the ClamAV official Documentation.

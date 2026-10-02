@@ -1,10 +1,10 @@
 # Migration from 0.3.4 to 0.3.5
 
-Version 0.3.5 speeds up archive pre-extraction by keeping libarchive loaded
-while detecting archives and extracting detected archives concurrently. Archive
-detection remains content-based, including for extension-less OCI blobs and
-nested archives. If the accelerated detector is unavailable, the task falls
-back to the previous serial extraction behavior.
+Version 0.3.5 speeds up archive pre-extraction with the accelerated extractor
+supplied by the `clamav-db` image. Archive detection remains content-based,
+including for extension-less OCI blobs and nested archives, and detected
+archives are extracted concurrently. If the accelerated extractor is
+unavailable or fails, the task falls back to the previous serial behavior.
 
 The new optional `archive-extraction-mode` parameter accepts `legacy` or
 `accelerated` and defaults to `legacy`, so existing users retain the previous

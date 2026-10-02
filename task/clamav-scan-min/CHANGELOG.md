@@ -20,8 +20,8 @@ If that's not something you ever plan to do, consider removing this section.
 
 ### Changed
 
-- Inherit faster content-based archive detection and concurrent extraction
-  from `clamav-scan`, with the previous serial extractor as a fallback.
+- Inherit the `clamav-db` image's accelerated archive extractor from
+  `clamav-scan`, with the previous serial extractor as a fallback.
 
 ## 0.3.3
 
