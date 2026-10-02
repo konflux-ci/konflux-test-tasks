@@ -1,3 +1,16 @@
+# Migration from 0.3.4 to 0.3.5
+
+Version 0.3.5 speeds up archive pre-extraction by keeping libarchive loaded
+while detecting archives and extracting detected archives concurrently. Archive
+detection remains content-based, including for extension-less OCI blobs and
+nested archives. If the accelerated detector is unavailable, the task falls
+back to the previous serial extraction behavior.
+
+There are no new parameters or results. `clamd-max-threads` also bounds the
+number of concurrent archive extractions. No action is required from users.
+
+---
+
 # Migration from 0.3.3 to 0.3.4
 
 Version 0.3.4 improves how archived content is scanned. Instead of handing the

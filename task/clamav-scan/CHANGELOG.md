@@ -2,6 +2,15 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.3.5
+
+### Changed
+
+- Detect nested archives with a long-lived libarchive reader instead of
+  starting `bsdtar` for every file. Extract archives concurrently while
+  preserving content-based detection and falling back to the previous serial
+  extractor if the accelerated detector is unavailable.
+
 ## 0.3.4
 
 ### Added

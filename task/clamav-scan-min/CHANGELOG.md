@@ -11,6 +11,13 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.3.5
+
+### Changed
+
+- Inherit faster content-based archive detection and concurrent extraction
+  from `clamav-scan`, with the previous serial extractor as a fallback.
+
 ## 0.3.3
 
 ### Changed

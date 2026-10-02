@@ -11,7 +11,7 @@ Scans the content of container images and OCI artifacts for viruses, malware, an
 |docker-auth|unused|""|false|
 |ca-trust-config-map-name|The name of the ConfigMap to read CA bundle data from.|trusted-ca|false|
 |ca-trust-config-map-key|The name of the key in the ConfigMap that contains the CA bundle data.|ca-bundle.crt|false|
-|clamd-max-threads|Maximum number of threads clamd runs.|8|false|
+|clamd-max-threads|Maximum number of clamd threads and concurrent archive extractions.|8|false|
 |skip-upload|If true, skips uploading the results to the image registry. Useful for read-only tests.|false|false|
 
 ## Results
