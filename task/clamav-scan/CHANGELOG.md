@@ -4,6 +4,11 @@
 
 ## 0.3.5
 
+### Added
+
+- Add the `archive-extraction-mode` parameter with `legacy` and `accelerated`
+  values. It defaults to `legacy` for backward-compatible rollout.
+
 ### Changed
 
 - Detect nested archives with a long-lived libarchive reader instead of

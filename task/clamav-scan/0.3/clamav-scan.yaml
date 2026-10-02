@@ -37,6 +37,9 @@ spec:
     - name: clamd-max-threads
       description: Maximum number of clamd threads and concurrent archive extractions.
       default: "8"
+    - name: archive-extraction-mode
+      description: Archive pre-extraction implementation. Supported values are legacy and accelerated.
+      default: legacy
     - name: skip-upload
       description: If true, skips uploading the results to the image registry. Useful for read-only tests.
       default: "false"
@@ -64,6 +67,8 @@ spec:
           value: $(params.image-arch)
         - name: MAX_THREADS
           value: $(params.clamd-max-threads)
+        - name: ARCHIVE_EXTRACTION_MODE
+          value: $(params.archive-extraction-mode)
       computeResources:
         limits:
           memory: 12Gi
@@ -222,11 +227,26 @@ spec:
         }
 
         extract_archives() {
-          if ! extract_archives_fast "$1"; then
-            echo "Warning: accelerated archive detection failed; using serial extraction." >&2
-            extract_archives_serial "$1"
-          fi
+          case "$ARCHIVE_EXTRACTION_MODE" in
+            legacy)
+              extract_archives_serial "$1"
+              ;;
+            accelerated)
+              if ! extract_archives_fast "$1"; then
+                echo "Warning: accelerated archive detection failed; using serial extraction." >&2
+                extract_archives_serial "$1"
+              fi
+              ;;
+          esac
         }
+
+        case "$ARCHIVE_EXTRACTION_MODE" in
+          legacy|accelerated) ;;
+          *)
+            echo "archive-extraction-mode must be 'legacy' or 'accelerated'" >&2
+            exit 1
+            ;;
+        esac
 
         # Start clamd in background
         /start-clamd.sh
@@ -276,7 +296,7 @@ spec:
 
           # Unpack nested archives into a loose file tree so clamd scans loose
           # files directly rather than recursing into archives (see extract_archives).
-          echo "Pre-extracting archives under ${destination}."
+          echo "Pre-extracting archives under ${destination} using ${ARCHIVE_EXTRACTION_MODE} mode."
           extract_archives "${destination}" 2>&1 \
             | tee "/work/logs/extract-${suffix}.log" || true
 

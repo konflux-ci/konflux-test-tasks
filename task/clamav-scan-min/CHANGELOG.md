@@ -13,6 +13,11 @@ If that's not something you ever plan to do, consider removing this section.
 
 ## 0.3.5
 
+### Added
+
+- Inherit the `archive-extraction-mode` parameter from `clamav-scan`, defaulting
+  to `legacy` for backward-compatible rollout.
+
 ### Changed
 
 - Inherit faster content-based archive detection and concurrent extraction
