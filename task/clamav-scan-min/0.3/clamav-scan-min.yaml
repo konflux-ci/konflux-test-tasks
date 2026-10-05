@@ -89,7 +89,12 @@ spec:
           # Treat as an archive only if bsdtar can list at least one entry.
           if bsdtar -tf "$f" 2>/dev/null | grep -q .; then
             out="${f}.d"
-            mkdir -p "$out"
+            # Never merge extracted contents into an existing output path.
+            if ! mkdir "$out"; then
+              echo "Error: cannot create extraction output $out; scan coverage is incomplete." >&2
+              failed=1
+              continue
+            fi
             if bsdtar -xf "$f" -C "$out" >/dev/null 2>&1; then
               rm -f "$f"
               extract_archives_serial "$out" || failed=1

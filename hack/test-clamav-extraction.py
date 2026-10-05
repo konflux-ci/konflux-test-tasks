@@ -59,4 +59,40 @@ for task in ("clamav-scan", "clamav-scan-min"):
                 assert archive.exists() == (failure == "1"), result.stderr
                 if failure == "1":
                     assert "archive extraction incomplete" in result.stderr
-    print(f"PASS: {task} successful fallback and failure gate")
+        # A collision must stop both legacy mode and accelerated-mode fallback.
+        for mode in ("legacy", "accelerated"):
+            for kind in ("directory", "file", "symlink"):
+                fixture = root / f"{mode}-collision-{kind}"
+                fixture.mkdir()
+                archive = fixture / "input.archive"
+                archive.write_text("original archive")
+                output = fixture / "input.archive.d"
+                if kind == "directory":
+                    output.mkdir()
+                    (output / "marker").write_text("existing content")
+                elif kind == "file":
+                    output.write_text("existing content")
+                else:
+                    output.symlink_to("missing-target")
+                scanned = fixture / "scanned"
+                result = subprocess.run(
+                    ["bash", "-c", script, "_", str(fixture), str(scanned)],
+                    env=dict(os.environ, PATH=str(binaries) + ":" + os.environ["PATH"],
+                             ARCHIVE_EXTRACTION_MODE=mode, MAX_THREADS="2",
+                             FAIL_EXTRACTION="0"),
+                    capture_output=True, text=True,
+                )
+                assert result.returncode != 0, result.stderr
+                assert not scanned.exists()
+                assert archive.read_text() == "original archive"
+                assert "cannot create extraction output" in result.stdout, result.stdout
+                assert "archive extraction incomplete" in result.stderr
+                if kind == "directory":
+                    assert list(output.iterdir()) == [output / "marker"]
+                    assert (output / "marker").read_text() == "existing content"
+                elif kind == "file":
+                    assert output.read_text() == "existing content"
+                else:
+                    assert output.is_symlink()
+                    assert os.readlink(output) == "missing-target"
+    print(f"PASS: {task} successful fallback, failure gate, and output collisions")
