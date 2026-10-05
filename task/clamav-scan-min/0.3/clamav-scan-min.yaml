@@ -83,21 +83,27 @@ spec:
       # (the scanned payload can be an extension-less blob).
       extract_archives_serial() {
         local dir="$1"
-        find "$dir" -type f -print0 | while IFS= read -r -d "" f; do
+        find "$dir" -type f -print0 | (
+        failed=0
+        while IFS= read -r -d "" f; do
           # Treat as an archive only if bsdtar can list at least one entry.
           if bsdtar -tf "$f" 2>/dev/null | grep -q .; then
             out="${f}.d"
             mkdir -p "$out"
             if bsdtar -xf "$f" -C "$out" >/dev/null 2>&1; then
               rm -f "$f"
-              extract_archives_serial "$out"
+              extract_archives_serial "$out" || failed=1
             else
               # Extraction failed: drop the dir if empty and leave the
               # original file in place for clamd to scan.
               rmdir "$out" 2>/dev/null || true
+              echo "Error: could not extract archive $f; scan coverage is incomplete." >&2
+              failed=1
             fi
           fi
         done
+        test "$failed" -eq 0
+        )
       }
 
       # The clamav-db image owns and tests the accelerated implementation.
@@ -179,8 +185,11 @@ spec:
         # Unpack nested archives into a loose file tree so clamd scans loose
         # files directly rather than recursing into archives (see extract_archives).
         echo "Pre-extracting archives under ${destination} using ${ARCHIVE_EXTRACTION_MODE} mode."
-        extract_archives "${destination}" 2>&1 \
-          | tee "/work/logs/extract-${suffix}.log" || true
+        if ! extract_archives "${destination}" 2>&1 \
+          | tee "/work/logs/extract-${suffix}.log"; then
+          echo "Error: archive extraction incomplete; refusing to report a successful scan." >&2
+          exit 1
+        fi
 
         clamdscan "${destination}" -vi --multiscan --fdpass \
           | tee "/work/logs/clamscan-result-${suffix}.log" || true
