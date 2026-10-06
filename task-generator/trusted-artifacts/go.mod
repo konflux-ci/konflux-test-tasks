@@ -11,7 +11,7 @@ require (
 	k8s.io/apimachinery v0.37.1
 	mvdan.cc/sh/v3 v3.14.1
 	sigs.k8s.io/kustomize/api v0.21.1
-	sigs.k8s.io/kustomize/kyaml v0.21.1
+	sigs.k8s.io/kustomize/kyaml v0.21.2
 	sigs.k8s.io/yaml v1.6.0
 )
 
