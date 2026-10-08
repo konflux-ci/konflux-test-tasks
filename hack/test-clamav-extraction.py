@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: Apache-2.0
-"""Exercise the extraction failure gate from both task YAML scripts."""
+"""Exercise best-effort extraction and collision protection in both tasks."""
 import os
 from pathlib import Path
 import re
@@ -59,13 +59,13 @@ for task in ("clamav-scan", "clamav-scan-min"):
                              FAIL_EXTRACTION=failure),
                     capture_output=True, text=True,
                 )
-                assert (result.returncode != 0) == (failure == "1"), result.stderr
-                assert scanned.exists() == (failure == "0"), result.stderr
+                assert result.returncode == 0, result.stderr
+                assert scanned.exists(), result.stderr
                 assert archive.exists() == (failure == "1"), result.stderr
                 if mode == "accelerated":
                     assert (root / "workers.log").read_text() == "--workers\n2\n"
                 if failure == "1":
-                    assert "archive extraction incomplete" in result.stderr
+                    assert "continuing with best-effort scanning" in result.stdout
         # A collision must stop both legacy mode and accelerated-mode fallback.
         for mode in ("legacy", "accelerated"):
             for kind in ("directory", "file", "symlink"):
@@ -103,4 +103,4 @@ for task in ("clamav-scan", "clamav-scan-min"):
                 else:
                     assert output.is_symlink()
                     assert os.readlink(output) == "missing-target"
-    print(f"PASS: {task} successful fallback, failure gate, and output collisions")
+    print(f"PASS: {task} fallback, best-effort scanning, and output collisions")

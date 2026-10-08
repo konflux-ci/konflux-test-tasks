@@ -106,10 +106,10 @@ spec:
               extract_archives_serial "$out" || failed=1
             else
               # Extraction failed: drop the dir if empty and leave the
-              # original file in place for clamd to scan.
+              # original file in place for best-effort scanning. With
+              # ScanArchive no, clamd scans its raw bytes, not its contents.
               rmdir "$out" 2>/dev/null || true
-              echo "Error: could not extract archive $f; scan coverage is incomplete." >&2
-              failed=1
+              echo "Warning: could not extract archive $f; continuing with best-effort scanning." >&2
             fi
           fi
         done

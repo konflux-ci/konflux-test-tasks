@@ -37,6 +37,10 @@ are bounded by `archive-extraction-workers` (default: `8`), independently of
 processing falls back to the serial extractor if the accelerated implementation
 is unavailable or fails.
 
+Failed archive extraction emits a warning and scanning continues with the
+original archive retained. ClamAV scans retained archives as raw files because
+internal archive scanning is disabled. Output-path collisions remain fatal.
+
 ## --max-filesize: 
 Is set to the same value as the default value according to the ClamAV official Documentation.
 
