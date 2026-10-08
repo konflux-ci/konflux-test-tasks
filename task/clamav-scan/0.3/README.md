@@ -32,7 +32,8 @@ list).
 The new `archive-extraction-mode` parameter selects `legacy` serial extraction
 or the `accelerated` extractor supplied by the `clamav-db` image. It defaults to
 `legacy` so existing users keep the previous behavior. Concurrent extractions
-are bounded by `clamd-max-threads`; detection remains content-based, and
+are bounded by `archive-extraction-workers` (default: `8`), independently of
+`clamd-max-threads`; detection remains content-based, and
 processing falls back to the serial extractor if the accelerated implementation
 is unavailable or fails.
 
@@ -53,8 +54,9 @@ https://docs.clamav.net/manual/Development/tips-and-tricks.html?highlight=max-fi
 | docker-auth              | Unused, should be removed in next task version.                        |               |
 | ca-trust-config-map-name | The name of the ConfigMap to read CA bundle data from.                 | trusted-ca    |
 | ca-trust-config-map-key  | The name of the key in the ConfigMap that contains the CA bundle data. | ca-bundle.crt |
-| clamd-max-threads        | Maximum number of clamd threads and concurrent archive extractions.    | 8             |
+| clamd-max-threads        | Maximum number of threads clamd runs.                                 | 8             |
 | archive-extraction-mode  | Archive pre-extraction implementation: `legacy` or `accelerated`.        | legacy        |
+| archive-extraction-workers | Maximum concurrent archive extractions in accelerated mode; positive integer, ignored in legacy mode. | 8 |
 
 ## Results:
 

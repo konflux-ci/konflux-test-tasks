@@ -30,7 +30,11 @@ for task in ("clamav-scan", "clamav-scan-min"):
             'elif [[ $FAIL_EXTRACTION == 1 ]]; then exit 1; '
             'else echo payload > "$4/payload"; fi\n'
         )
-        (binaries / "clamav-extract-archives").write_text("#!/bin/bash\nexit 23\n")
+        (binaries / "clamav-extract-archives").write_text(
+            '#!/bin/bash\n'
+            'printf "%s\\n" "$1" "$2" > "$WORKERS_LOG"\n'
+            'exit 23\n'
+        )
         for binary in binaries.iterdir():
             binary.chmod(0o755)
         script = (
@@ -50,13 +54,16 @@ for task in ("clamav-scan", "clamav-scan-min"):
                 result = subprocess.run(
                     ["bash", "-c", script, "_", str(fixture), str(scanned)],
                     env=dict(os.environ, PATH=str(binaries) + ":" + os.environ["PATH"],
-                             ARCHIVE_EXTRACTION_MODE=mode, MAX_THREADS="2",
+                             ARCHIVE_EXTRACTION_MODE=mode, MAX_THREADS="7",
+                             ARCHIVE_EXTRACTION_WORKERS="2", WORKERS_LOG=str(root / "workers.log"),
                              FAIL_EXTRACTION=failure),
                     capture_output=True, text=True,
                 )
                 assert (result.returncode != 0) == (failure == "1"), result.stderr
                 assert scanned.exists() == (failure == "0"), result.stderr
                 assert archive.exists() == (failure == "1"), result.stderr
+                if mode == "accelerated":
+                    assert (root / "workers.log").read_text() == "--workers\n2\n"
                 if failure == "1":
                     assert "archive extraction incomplete" in result.stderr
         # A collision must stop both legacy mode and accelerated-mode fallback.
@@ -78,7 +85,8 @@ for task in ("clamav-scan", "clamav-scan-min"):
                 result = subprocess.run(
                     ["bash", "-c", script, "_", str(fixture), str(scanned)],
                     env=dict(os.environ, PATH=str(binaries) + ":" + os.environ["PATH"],
-                             ARCHIVE_EXTRACTION_MODE=mode, MAX_THREADS="2",
+                             ARCHIVE_EXTRACTION_MODE=mode, MAX_THREADS="7",
+                             ARCHIVE_EXTRACTION_WORKERS="2", WORKERS_LOG=str(root / "workers.log"),
                              FAIL_EXTRACTION="0"),
                     capture_output=True, text=True,
                 )

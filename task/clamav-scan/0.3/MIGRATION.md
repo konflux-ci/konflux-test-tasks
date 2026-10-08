@@ -9,7 +9,9 @@ unavailable or fails, the task falls back to the previous serial behavior.
 The new optional `archive-extraction-mode` parameter accepts `legacy` or
 `accelerated` and defaults to `legacy`, so existing users retain the previous
 serial behavior. Set it to `accelerated` to enable the speed-up.
-`clamd-max-threads` also bounds the number of concurrent archive extractions.
+The optional `archive-extraction-workers` parameter defaults to `8` and bounds
+concurrent archive extractions in accelerated mode. It must be a positive integer
+and is ignored in legacy mode. `clamd-max-threads` only controls scanning.
 There are no new results.
 
 ---

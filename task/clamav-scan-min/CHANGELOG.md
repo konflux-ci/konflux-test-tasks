@@ -17,6 +17,8 @@ If that's not something you ever plan to do, consider removing this section.
 
 - Inherit the `archive-extraction-mode` parameter from `clamav-scan`, defaulting
   to `legacy` for backward-compatible rollout.
+- Inherit `archive-extraction-workers` (default: `8`) for independent control
+  of accelerated extraction concurrency.
 
 ### Changed
 

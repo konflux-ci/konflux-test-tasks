@@ -8,6 +8,8 @@
 
 - Add the `archive-extraction-mode` parameter with `legacy` and `accelerated`
   values. It defaults to `legacy` for backward-compatible rollout.
+- Add `archive-extraction-workers` (default: `8`) to configure accelerated
+  extraction concurrency independently of `clamd-max-threads`.
 
 ### Changed
 

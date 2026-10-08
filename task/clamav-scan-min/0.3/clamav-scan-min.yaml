@@ -32,12 +32,16 @@ spec:
     name: ca-trust-config-map-key
     type: string
   - default: "8"
-    description: Maximum number of clamd threads and concurrent archive extractions.
+    description: Maximum number of threads clamd runs.
     name: clamd-max-threads
   - default: legacy
     description: Archive pre-extraction implementation. Supported values are legacy
       and accelerated.
     name: archive-extraction-mode
+  - default: "8"
+    description: Maximum concurrent archive extractions in accelerated mode. Must
+      be a positive integer; ignored in legacy mode.
+    name: archive-extraction-workers
   - default: "false"
     description: If true, skips uploading the results to the image registry. Useful
       for read-only tests.
@@ -68,6 +72,8 @@ spec:
       value: $(params.clamd-max-threads)
     - name: ARCHIVE_EXTRACTION_MODE
       value: $(params.archive-extraction-mode)
+    - name: ARCHIVE_EXTRACTION_WORKERS
+      value: $(params.archive-extraction-workers)
     image: quay.io/konflux-ci/clamav-db:latest
     name: extract-and-scan-image
     script: |
@@ -116,7 +122,7 @@ spec:
       # YAML while retaining the previous serial implementation as fallback.
       extract_archives_fast() {
         clamav-extract-archives \
-          --workers "$MAX_THREADS" "$1"
+          --workers "$ARCHIVE_EXTRACTION_WORKERS" "$1"
       }
 
       extract_archives() {
