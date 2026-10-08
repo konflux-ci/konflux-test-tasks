@@ -41,6 +41,19 @@ Failed archive extraction emits a warning and scanning continues with the
 original archive retained. ClamAV scans retained archives as raw files because
 internal archive scanning is disabled. Output-path collisions remain fatal.
 
+### Extraction regression tests
+
+With Bash, ShellSpec, and Mike Farah's `yq` installed, run from the repository root:
+
+```bash
+cd task/clamav-scan/0.3/spec
+shellspec --shell bash extraction_spec.sh
+```
+
+These tests exercise the YAML extraction logic for both task variants with mocked
+extractors: serial fallback, best-effort failures, worker settings, and collisions.
+They do not run ClamAV or unpack real archives.
+
 ## --max-filesize: 
 Is set to the same value as the default value according to the ClamAV official Documentation.
 
