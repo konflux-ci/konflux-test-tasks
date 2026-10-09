@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.3.4"
+    app.kubernetes.io/version: "0.3.5"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "virus, konflux"
@@ -37,6 +37,12 @@ spec:
     - name: clamd-max-threads
       description: Maximum number of threads clamd runs.
       default: "8"
+    - name: archive-extraction-mode
+      description: Archive pre-extraction implementation. Supported values are legacy and accelerated.
+      default: legacy
+    - name: archive-extraction-workers
+      description: Maximum concurrent archive extractions in accelerated mode. Must be a positive integer; ignored in legacy mode.
+      default: "8"
     - name: skip-upload
       description: If true, skips uploading the results to the image registry. Useful for read-only tests.
       default: "false"
@@ -64,6 +70,10 @@ spec:
           value: $(params.image-arch)
         - name: MAX_THREADS
           value: $(params.clamd-max-threads)
+        - name: ARCHIVE_EXTRACTION_MODE
+          value: $(params.archive-extraction-mode)
+        - name: ARCHIVE_EXTRACTION_WORKERS
+          value: $(params.archive-extraction-workers)
       computeResources:
         limits:
           memory: 12Gi
@@ -82,24 +92,64 @@ spec:
         # scans each file directly instead of recursing through archive layers,
         # which is faster. bsdtar detects archives by content, not extension
         # (the scanned payload can be an extension-less blob).
-        extract_archives() {
+        extract_archives_serial() {
           local dir="$1"
           find "$dir" -type f -print0 | while IFS= read -r -d "" f; do
             # Treat as an archive only if bsdtar can list at least one entry.
             if bsdtar -tf "$f" 2>/dev/null | grep -q .; then
               out="${f}.d"
-              mkdir -p "$out"
+              # Never merge extracted contents into an existing output path.
+              if ! mkdir "$out"; then
+                echo "Warning: cannot create extraction output $out; retaining archive and continuing with best-effort scanning." >&2
+                continue
+              fi
               if bsdtar -xf "$f" -C "$out" >/dev/null 2>&1; then
                 rm -f "$f"
-                extract_archives "$out"
+                extract_archives_serial "$out" || true
               else
                 # Extraction failed: drop the dir if empty and leave the
-                # original file in place for clamd to scan.
+                # original file in place for best-effort scanning. With
+                # ScanArchive no, clamd scans its raw bytes, not its contents.
                 rmdir "$out" 2>/dev/null || true
+                echo "Warning: could not extract archive $f; continuing with best-effort scanning." >&2
               fi
             fi
           done
         }
+
+        # The clamav-db image owns and tests the accelerated implementation.
+        # Keeping it outside this task avoids embedding its Python internals in
+        # YAML while retaining the previous serial implementation as fallback.
+        extract_archives_fast() {
+          clamav-extract-archives \
+            --workers "$ARCHIVE_EXTRACTION_WORKERS" "$1"
+        }
+
+        extract_archives() {
+          case "$ARCHIVE_EXTRACTION_MODE" in
+            legacy)
+              extract_archives_serial "$1"
+              ;;
+            accelerated)
+              if ! extract_archives_fast "$1"; then
+                echo "Warning: accelerated archive extraction failed; using serial extraction." >&2
+                extract_archives_serial "$1"
+              fi
+              ;;
+          esac
+        }
+
+        case "${ARCHIVE_EXTRACTION_MODE:-}" in
+          legacy|accelerated) ;;
+          "")
+            echo "Warning: ARCHIVE_EXTRACTION_MODE was not provided; falling back to legacy/bsdtar extraction." >&2
+            ARCHIVE_EXTRACTION_MODE=legacy
+            ;;
+          *)
+            echo "Warning: archive-extraction-mode must be 'legacy' or 'accelerated'; using legacy extraction." >&2
+            ARCHIVE_EXTRACTION_MODE=legacy
+            ;;
+        esac
 
         # Start clamd in background
         /start-clamd.sh
@@ -149,7 +199,7 @@ spec:
 
           # Unpack nested archives into a loose file tree so clamd scans loose
           # files directly rather than recursing into archives (see extract_archives).
-          echo "Pre-extracting archives under ${destination}."
+          echo "Pre-extracting archives under ${destination} using ${ARCHIVE_EXTRACTION_MODE} mode."
           extract_archives "${destination}" 2>&1 \
             | tee "/work/logs/extract-${suffix}.log" || true
 
