@@ -14,7 +14,8 @@
 ### Changed
 
 - Preserve best-effort scanning after archive extraction failures, with warnings
-  and the original archive retained. Output-path collisions remain fatal.
+  and the original archive retained. Output-path collisions warn without
+  overwriting existing data or stopping the scan; invalid modes use `legacy`.
 - Use the accelerated archive extractor supplied by the `clamav-db` image.
   Extract archives concurrently while preserving content-based detection and
   falling back to the previous serial extractor if the accelerated utility is

@@ -17,7 +17,8 @@ There are no new results.
 Archive extraction remains best-effort: if an archive cannot be unpacked, it is
 retained and scanning continues with a warning. With `ScanArchive no`, retained
 archives are scanned as raw files, not unpacked by ClamAV. Output-path collisions
-still stop the task to avoid overwriting or merging existing data.
+leave existing data untouched and warn without stopping the scan. Invalid
+extraction modes warn and fall back to `legacy`.
 
 ---
 

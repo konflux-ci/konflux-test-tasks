@@ -23,7 +23,7 @@ If that's not something you ever plan to do, consider removing this section.
 ### Changed
 
 - Inherit best-effort scanning after archive extraction failures and retain
-  fatal output-path collision protection.
+  non-destructive output-path collision protection without stopping the scan.
 - Inherit the `clamav-db` image's accelerated archive extractor from
   `clamav-scan`, with the previous serial extractor as a fallback.
 

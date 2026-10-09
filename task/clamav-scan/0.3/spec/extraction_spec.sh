@@ -4,7 +4,7 @@ set -euo pipefail
 
 eval "$(shellspec - -c) exit 1"
 
-# Exercise the actual YAML functions and scan gate, not a copied implementation.
+# Exercise the actual YAML functions and scan call, not a copied implementation.
 prepare_fixture() {
     fixture=$(mktemp -d)
     export ARCHIVE_EXTRACTION_MODE="$2" ARCHIVE_EXTRACTION_WORKERS=2 MAX_THREADS=7
@@ -16,14 +16,14 @@ prepare_fixture() {
         printf 'set -euo pipefail\n'
         awk '
             /extract_archives_serial\(\)/ { copying=1 }
-            copying && /^case "\$ARCHIVE_EXTRACTION_MODE"/ { exit }
+            copying && /^# Start clamd in background/ { exit }
             copying { print }
         ' "$fixture/step.sh"
         printf 'destination=$1\nsuffix=test\n'
         awk '
-            /^ *if ! extract_archives "\$\{destination\}"/ { copying=1 }
+            /^ *extract_archives "\$\{destination\}"/ { copying=1 }
             copying { print }
-            copying && /^ *fi$/ { exit }
+            copying && /\|\| true$/ { exit }
         ' "$fixture/step.sh" | sed "s|/work/logs/|$fixture/|g"
         printf 'printf scanned > "$2"\n'
     } > "$fixture/run.sh"
@@ -51,6 +51,7 @@ Describe 'archive extraction in both task variants'
         if [[ $1 == -tf ]]; then
             [[ $2 == *.archive ]] && echo payload
         elif [[ $FAIL_EXTRACTION == 1 ]]; then
+            # Simulate bsdtar failing; the task must still continue scanning.
             exit 1
         else
             printf payload > "$4/payload"
@@ -115,7 +116,7 @@ Describe 'archive extraction in both task variants'
             directory file symlink
         End
 
-        It "stops without modifying existing data ($1, $2, $3)"
+        It "warns and continues without modifying existing data ($1, $2, $3)"
             prepare_fixture "$1" "$2"
             collision="$fixture/content/input.archive.d"
             case "$3" in
@@ -124,10 +125,11 @@ Describe 'archive extraction in both task variants'
                 symlink) ln -s missing-target "$collision" ;;
             esac
             When call run_extraction
-            The status should be failure
+            The status should be success
             The output should include 'cannot create extraction output'
-            The stderr should include 'archive extraction incomplete'
-            The file "$fixture/scanned" should not be exist
+            The output should include 'continuing with best-effort scanning'
+            The stderr should be blank
+            The file "$fixture/scanned" should be exist
             The contents of file "$fixture/content/input.archive" should equal 'original archive'
             case "$3" in
                 directory)
@@ -142,6 +144,47 @@ Describe 'archive extraction in both task variants'
                     The result of function symlink_target should equal missing-target
                     ;;
             esac
+        End
+    End
+
+    Describe 'invalid extraction mode'
+        Parameters
+            clamav-scan
+            clamav-scan-min
+        End
+
+        It "warns and uses legacy extraction before scanning ($1)"
+            prepare_fixture "$1" invalid
+            When call run_extraction
+            The status should be success
+            The stderr should include 'using legacy extraction'
+            The output should be blank
+            The file "$WORKERS_LOG" should not be exist
+            The file "$fixture/scanned" should be exist
+            The file "$fixture/content/input.archive" should not be exist
+            The contents of file "$fixture/content/input.archive.d/payload" should equal payload
+        End
+    End
+
+    Describe 'missing extraction mode'
+        Parameters:matrix
+            clamav-scan clamav-scan-min
+            empty unset
+        End
+
+        It "warns and uses legacy/bsdtar extraction ($1, $2)"
+            prepare_fixture "$1" ""
+            if [[ $2 == unset ]]; then
+                unset ARCHIVE_EXTRACTION_MODE
+            fi
+            When call run_extraction
+            The status should be success
+            The stderr should include 'ARCHIVE_EXTRACTION_MODE was not provided; falling back to legacy/bsdtar extraction'
+            The output should be blank
+            The file "$WORKERS_LOG" should not be exist
+            The file "$fixture/scanned" should be exist
+            The file "$fixture/content/input.archive" should not be exist
+            The contents of file "$fixture/content/input.archive.d/payload" should equal payload
         End
     End
 End

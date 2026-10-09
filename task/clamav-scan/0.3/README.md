@@ -39,7 +39,9 @@ is unavailable or fails.
 
 Failed archive extraction emits a warning and scanning continues with the
 original archive retained. ClamAV scans retained archives as raw files because
-internal archive scanning is disabled. Output-path collisions remain fatal.
+internal archive scanning is disabled. Output-path collisions warn and leave
+existing data untouched while scanning continues. Invalid extraction modes warn
+and fall back to `legacy`.
 
 ### Extraction regression tests
 

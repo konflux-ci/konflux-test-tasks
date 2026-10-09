@@ -89,21 +89,18 @@ spec:
       # (the scanned payload can be an extension-less blob).
       extract_archives_serial() {
         local dir="$1"
-        find "$dir" -type f -print0 | (
-        failed=0
-        while IFS= read -r -d "" f; do
+        find "$dir" -type f -print0 | while IFS= read -r -d "" f; do
           # Treat as an archive only if bsdtar can list at least one entry.
           if bsdtar -tf "$f" 2>/dev/null | grep -q .; then
             out="${f}.d"
             # Never merge extracted contents into an existing output path.
             if ! mkdir "$out"; then
-              echo "Error: cannot create extraction output $out; scan coverage is incomplete." >&2
-              failed=1
+              echo "Warning: cannot create extraction output $out; retaining archive and continuing with best-effort scanning." >&2
               continue
             fi
             if bsdtar -xf "$f" -C "$out" >/dev/null 2>&1; then
               rm -f "$f"
-              extract_archives_serial "$out" || failed=1
+              extract_archives_serial "$out" || true
             else
               # Extraction failed: drop the dir if empty and leave the
               # original file in place for best-effort scanning. With
@@ -113,8 +110,6 @@ spec:
             fi
           fi
         done
-        test "$failed" -eq 0
-        )
       }
 
       # The clamav-db image owns and tests the accelerated implementation.
@@ -139,11 +134,15 @@ spec:
         esac
       }
 
-      case "$ARCHIVE_EXTRACTION_MODE" in
+      case "${ARCHIVE_EXTRACTION_MODE:-}" in
         legacy|accelerated) ;;
+        "")
+          echo "Warning: ARCHIVE_EXTRACTION_MODE was not provided; falling back to legacy/bsdtar extraction." >&2
+          ARCHIVE_EXTRACTION_MODE=legacy
+          ;;
         *)
-          echo "archive-extraction-mode must be 'legacy' or 'accelerated'" >&2
-          exit 1
+          echo "Warning: archive-extraction-mode must be 'legacy' or 'accelerated'; using legacy extraction." >&2
+          ARCHIVE_EXTRACTION_MODE=legacy
           ;;
       esac
 
@@ -196,11 +195,8 @@ spec:
         # Unpack nested archives into a loose file tree so clamd scans loose
         # files directly rather than recursing into archives (see extract_archives).
         echo "Pre-extracting archives under ${destination} using ${ARCHIVE_EXTRACTION_MODE} mode."
-        if ! extract_archives "${destination}" 2>&1 \
-          | tee "/work/logs/extract-${suffix}.log"; then
-          echo "Error: archive extraction incomplete; refusing to report a successful scan." >&2
-          exit 1
-        fi
+        extract_archives "${destination}" 2>&1 \
+          | tee "/work/logs/extract-${suffix}.log" || true
 
         clamdscan "${destination}" -vi --multiscan --fdpass \
           | tee "/work/logs/clamscan-result-${suffix}.log" || true
