@@ -4,7 +4,7 @@ kind: Task
 metadata:
   name: roxctl-scan
   labels:
-    app.kubernetes.io/version: "0.1"
+    app.kubernetes.io/version: "0.1.1"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "konflux"
@@ -81,7 +81,7 @@ spec:
   steps:
     - name: exchange-service-account-token
       workingDir: /tekton/home
-      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel9@sha256:979f329cbe0d0dd1c41e63b471c246294780c5daf029c239ebd7d48129e75a15
+      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel9@sha256:98f01d623e119acbbc211bdeb36192b619969aa149d9c66bab8034eeef84c861
       volumeMounts:
         - name: token-vol
           mountPath: /service-account-token
@@ -134,7 +134,7 @@ spec:
           exit 0
         fi
     - name: rox-image-scan
-      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel9@sha256:979f329cbe0d0dd1c41e63b471c246294780c5daf029c239ebd7d48129e75a15
+      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel9@sha256:98f01d623e119acbbc211bdeb36192b619969aa149d9c66bab8034eeef84c861
       env:
         - name: HOME
           value: /tekton/home
