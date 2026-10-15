@@ -117,6 +117,7 @@ All notable changes to this project will be documented in this file.
 - Use "Unreleased" section for changes before release
 - Update when bumping version
 - CI requires both CHANGELOG update AND version bump together (warning only, not blocker)
+- When updating container image digests, reference the human-readable upstream software version (e.g., "Updated roxctl image to version 4.11.5"), not just the digest hash
 
 ## Steps Required from User
 

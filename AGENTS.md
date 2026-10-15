@@ -44,6 +44,7 @@ Some of the CI scripts and workflows in this repo come from the [task-repo-share
 - **Git**: conventional commits with Jira ticket as scope — `type(issue-id): description` (e.g. `feat(STONEINTG-1519): create PR group snapshots from ComponentGroups`)
     - The `main` branch is read only, never push there directly, a new feature branch must be created instead
     - Pull requests are used to propose changes to the `main` branch
+- When updating container image digests in task definitions, CHANGELOG entries should reference the human-readable upstream software version (e.g., "Updated roxctl image to version 4.11.5"), not just the digest hash. This helps consumers understand what changed without looking up the digest.
 - Don't change whitespaces or newlines in the existing unrelated code and never add whitespaces or tabs to empty lines
 - Don't remove unrelated code and don't change files when/where modifications are not needed
 - Don't add trailing newlines at the end of file, last newline character is at the end of code
