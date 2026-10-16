@@ -214,7 +214,7 @@ spec:
           if [ -e "$rox_file" ]; then
             arch=$(basename "$rox_file" | sed 's/rox-output-//;s/.json//')
             #STONEINTG-1878 quickfix, create more robust solution
-            sed -i 's/\\(/(/g' "$rox_file"
+            sed -E -i 's/%!(.)\(MISSING\)/%\1/g; s/%!\(NOVERB\)/%/g' "$rox_file"
             jq -s -f /parse_to_cve_oriented_output.jq "$rox_file" | tee "/tekton/home/pre-parsed-rox-output-${arch}.json"
             jq '{roxctl_new: .}' "/tekton/home/pre-parsed-rox-output-${arch}.json" > "/tekton/home/parsed-rox-output-${arch}.json"
           fi
