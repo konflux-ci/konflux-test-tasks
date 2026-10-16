@@ -2,6 +2,25 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.3.5
+
+### Added
+
+- Add the `archive-extraction-mode` parameter with `legacy` and `accelerated`
+  values. It defaults to `legacy` for backward-compatible rollout.
+- Add `archive-extraction-workers` (default: `8`) to configure accelerated
+  extraction concurrency independently of `clamd-max-threads`.
+
+### Changed
+
+- Preserve best-effort scanning after archive extraction failures, with warnings
+  and the original archive retained. Output-path collisions warn without
+  overwriting existing data or stopping the scan; invalid modes use `legacy`.
+- Use the accelerated archive extractor supplied by the `clamav-db` image.
+  Extract archives concurrently while preserving content-based detection and
+  falling back to the previous serial extractor if the accelerated utility is
+  unavailable or fails.
+
 ## 0.3.4
 
 ### Added

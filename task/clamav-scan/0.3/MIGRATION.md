@@ -1,3 +1,27 @@
+# Migration from 0.3.4 to 0.3.5
+
+Version 0.3.5 speeds up archive pre-extraction with the accelerated extractor
+supplied by the `clamav-db` image. Archive detection remains content-based,
+including for extension-less OCI blobs and nested archives, and detected
+archives are extracted concurrently. If the accelerated extractor is
+unavailable or fails, the task falls back to the previous serial behavior.
+
+The new optional `archive-extraction-mode` parameter accepts `legacy` or
+`accelerated` and defaults to `legacy`, so existing users retain the previous
+serial behavior. Set it to `accelerated` to enable the speed-up.
+The optional `archive-extraction-workers` parameter defaults to `8` and bounds
+concurrent archive extractions in accelerated mode. It must be a positive integer
+and is ignored in legacy mode. `clamd-max-threads` only controls scanning.
+There are no new results.
+
+Archive extraction remains best-effort: if an archive cannot be unpacked, it is
+retained and scanning continues with a warning. With `ScanArchive no`, retained
+archives are scanned as raw files, not unpacked by ClamAV. Output-path collisions
+leave existing data untouched and warn without stopping the scan. Invalid
+extraction modes warn and fall back to `legacy`.
+
+---
+
 # Migration from 0.3.3 to 0.3.4
 
 Version 0.3.4 improves how archived content is scanned. Instead of handing the

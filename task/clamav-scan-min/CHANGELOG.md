@@ -11,6 +11,22 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.3.5
+
+### Added
+
+- Inherit the `archive-extraction-mode` parameter from `clamav-scan`, defaulting
+  to `legacy` for backward-compatible rollout.
+- Inherit `archive-extraction-workers` (default: `8`) for independent control
+  of accelerated extraction concurrency.
+
+### Changed
+
+- Inherit best-effort scanning after archive extraction failures and retain
+  non-destructive output-path collision protection without stopping the scan.
+- Inherit the `clamav-db` image's accelerated archive extractor from
+  `clamav-scan`, with the previous serial extractor as a fallback.
+
 ## 0.3.3
 
 ### Changed
