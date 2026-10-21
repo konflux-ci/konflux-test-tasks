@@ -12,6 +12,8 @@ Scans the content of container images and OCI artifacts for viruses, malware, an
 |ca-trust-config-map-name|The name of the ConfigMap to read CA bundle data from.|trusted-ca|false|
 |ca-trust-config-map-key|The name of the key in the ConfigMap that contains the CA bundle data.|ca-bundle.crt|false|
 |clamd-max-threads|Maximum number of threads clamd runs.|8|false|
+|archive-extraction-mode|Archive pre-extraction implementation. Supported values are legacy and accelerated.|legacy|false|
+|archive-extraction-workers|Maximum concurrent archive extractions in accelerated mode. Must be a positive integer; ignored in legacy mode.|8|false|
 |skip-upload|If true, skips uploading the results to the image registry. Useful for read-only tests.|false|false|
 
 ## Results

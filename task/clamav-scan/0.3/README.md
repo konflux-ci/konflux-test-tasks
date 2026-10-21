@@ -28,6 +28,34 @@ annotated layer is skipped when the descriptor `size` is at least 2000MiB
 `--dry-run` listing is used when those annotations are absent (same name
 list).
 
+## Version 0.3.5:
+The new `archive-extraction-mode` parameter selects `legacy` serial extraction
+or the `accelerated` extractor supplied by the `clamav-db` image. It defaults to
+`legacy` so existing users keep the previous behavior. Concurrent extractions
+are bounded by `archive-extraction-workers` (default: `8`), independently of
+`clamd-max-threads`; detection remains content-based, and
+processing falls back to the serial extractor if the accelerated implementation
+is unavailable or fails.
+
+Failed archive extraction emits a warning and scanning continues with the
+original archive retained. ClamAV scans retained archives as raw files because
+internal archive scanning is disabled. Output-path collisions warn and leave
+existing data untouched while scanning continues. Invalid extraction modes warn
+and fall back to `legacy`.
+
+### Extraction regression tests
+
+With Bash, ShellSpec, and Mike Farah's `yq` installed, run from the repository root:
+
+```bash
+cd task/clamav-scan/0.3/spec
+shellspec --shell bash extraction_spec.sh
+```
+
+These tests exercise the YAML extraction logic for both task variants with mocked
+extractors: serial fallback, best-effort failures, worker settings, and collisions.
+They do not run ClamAV or unpack real archives.
+
 ## --max-filesize: 
 Is set to the same value as the default value according to the ClamAV official Documentation.
 
@@ -45,7 +73,9 @@ https://docs.clamav.net/manual/Development/tips-and-tricks.html?highlight=max-fi
 | docker-auth              | Unused, should be removed in next task version.                        |               |
 | ca-trust-config-map-name | The name of the ConfigMap to read CA bundle data from.                 | trusted-ca    |
 | ca-trust-config-map-key  | The name of the key in the ConfigMap that contains the CA bundle data. | ca-bundle.crt |
-| clamd-max-threads        | Maximum number of threads clamd runs.                                  | 8             |
+| clamd-max-threads        | Maximum number of threads clamd runs.                                 | 8             |
+| archive-extraction-mode  | Archive pre-extraction implementation: `legacy` or `accelerated`.        | legacy        |
+| archive-extraction-workers | Maximum concurrent archive extractions in accelerated mode; positive integer, ignored in legacy mode. | 8 |
 
 ## Results:
 
