@@ -1,9 +1,9 @@
 module github.com/konflux-ci/build-definitions/task-generator/remote
 
-go 1.27.0
+go 1.27.3
 
 require (
-	github.com/tektoncd/pipeline v1.17.0
+	github.com/tektoncd/pipeline v1.17.1
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
 	k8s.io/cli-runtime v0.37.1
