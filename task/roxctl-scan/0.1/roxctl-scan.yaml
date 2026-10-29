@@ -85,6 +85,7 @@ spec:
       volumeMounts:
         - name: token-vol
           mountPath: /service-account-token
+      command: ["/usr/bin/roxctl"]
       args:
         - central
         - m2m
