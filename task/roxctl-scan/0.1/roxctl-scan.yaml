@@ -29,7 +29,7 @@ spec:
 
         SHA 256 digest may be included to ensure scan of sequental runs with same tag.
         Examples: 'gcr.io/rox/sample:5.0-rc1', '$(params.IMAGE)', '$(params.IMAGE)@$(tasks.buildah.results.IMAGE_DIGEST)'
-      default: ""
+      default: "quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252"
     - name: insecure-skip-tls-verify
       description: |
         Do not verify TLS certificates.
@@ -68,6 +68,8 @@ spec:
       description: Images processed in the task.
     - name: REPORTS
       description: Mapping of image digests to report digests
+    - name: ACS_RHSAS
+      description: Critical and important found RHSAs
   stepTemplate:
     env:
       - name: INSECURE
@@ -93,7 +95,7 @@ spec:
         - --insecure-skip-tls-verify=$(INSECURE)
         - --token-file=/service-account-token/token
     - name: get-image-manifests
-      image: quay.io/konflux-ci/konflux-test:v1.5.9@sha256:7faaebc542c61704003fecbab81a9c81c9770b4df8c5bba18459fba3f58e9c51
+      image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
       # the roxctl image neither has skopeo or jq installed. Hence, we create an extra step to get the image manifest digests
       computeResources:
         limits:
@@ -194,7 +196,7 @@ spec:
           scan_image "$IMAGE" "image-index"
         fi
     - name: proccess-output
-      image: quay.io/konflux-ci/konflux-test:v1.5.9@sha256:7faaebc542c61704003fecbab81a9c81c9770b4df8c5bba18459fba3f58e9c51
+      image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
       env:
         - name: IMAGE_URL
           value: $(params.image-url)
@@ -218,6 +220,7 @@ spec:
             sed -E -i 's/%!(.)\(MISSING\)/%\1/g; s/%!\(NOVERB\)/%/g' "$rox_file"
             jq -s -f /parse_to_cve_oriented_output.jq "$rox_file" | tee "/tekton/home/pre-parsed-rox-output-${arch}.json"
             jq '{roxctl_new: .}' "/tekton/home/pre-parsed-rox-output-${arch}.json" > "/tekton/home/parsed-rox-output-${arch}.json"
+            jq -f /parse_acs_to_rhsa.jq "/tekton/home/pre-parsed-rox-output-${arch}.json" >> "/tekton/home/rhsas.json"
           fi
         done
 
@@ -309,7 +312,7 @@ spec:
         echo "${reports_json}" > reports.json
         cat /tekton/home/reports.json > "$(results.REPORTS.path)"
     - name: conftest-vulnerabilities
-      image: quay.io/konflux-ci/konflux-test:v1.5.9@sha256:7faaebc542c61704003fecbab81a9c81c9770b4df8c5bba18459fba3f58e9c51
+      image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       computeResources:
@@ -399,6 +402,18 @@ spec:
         note="Task $(context.task.name) completed: Refer to Tekton task result SCAN_OUTPUT for vulnerabilities scanned by Rox."
         TEST_OUTPUT=$(make_result_json -r "SUCCESS" -t "$note")
         echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
+        # parse rhsas
+        jq -s 'def unique_preserving_order: reduce .[] as $item ([]; if index($item) == null then . + [$item] else . end);{ CRITICAL: ([.[].CRITICAL[]?] | unique_preserving_order), IMPORTANT: ([.[].IMPORTANT[]?] | unique_preserving_order) }' "/tekton/home/rhsas.json" > rhsas-final.json
+        # check for rhsas file size, exit in case it is larger
+        fsize=$(wc -c < rhsas-final.json)
+        if [ $fsize -gt 4096 ]; then
+          echo "File containing RHSAs is larger than 4096 bytes, result can't be used."
+          echo "File content:"
+          cat rhsas-final.json
+          exit 0
+        fi
+        ACS_RHSAS=$(< rhsas-final.json)
+        echo "${ACS_RHSAS}" | tee $(results.ACS_RHSAS.path)
   volumes:
     - name: token-vol
       projected:
