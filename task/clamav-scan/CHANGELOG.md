@@ -2,6 +2,15 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.3.5
+
+### Added
+
+- Scan Linux, Windows, and macOS container images by retaining each manifest's
+  OCI operating system and architecture during platform selection and layer
+  extraction. The `image-arch` parameter now accepts full OCI platforms and
+  recognizes `mac`, `macos`, and `osx` as aliases for `darwin`.
+
 ## 0.3.4
 
 ### Added

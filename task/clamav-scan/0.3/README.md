@@ -28,6 +28,15 @@ annotated layer is skipped when the descriptor `size` is at least 2000MiB
 `--dry-run` listing is used when those annotations are absent (same name
 list).
 
+## Version 0.3.5:
+Container image manifests retain their OCI operating system and architecture
+when layers are selected and extracted. Linux, Windows, and macOS (`darwin`)
+images can therefore be scanned from the same multi-platform image index.
+The `image-arch` parameter accepts either an architecture or an OCI platform
+such as `linux/amd64`, `windows/amd64`, or `darwin/arm64`. In the operating
+system portion of a platform, `mac`, `macos`, and `osx` are accepted as aliases
+for `darwin` (for example, `mac/arm64`).
+
 ## --max-filesize: 
 Is set to the same value as the default value according to the ClamAV official Documentation.
 
@@ -41,7 +50,7 @@ https://docs.clamav.net/manual/Development/tips-and-tricks.html?highlight=max-fi
 |--------------------------|------------------------------------------------------------------------|---------------|
 | image-digest             | Image digest to scan.                                                  | None          |
 | image-url                | Image URL.                                                             | None          |
-| image-arch               | Image arch.                                                            | None          |
+| image-arch               | Image platform or architecture.                                        | None          |
 | docker-auth              | Unused, should be removed in next task version.                        |               |
 | ca-trust-config-map-name | The name of the ConfigMap to read CA bundle data from.                 | trusted-ca    |
 | ca-trust-config-map-key  | The name of the key in the ConfigMap that contains the CA bundle data. | ca-bundle.crt |
