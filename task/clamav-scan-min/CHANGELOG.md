@@ -11,6 +11,14 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.3.7
+
+### Fixed
+
+- Make `/work` writable by the non-root scan image user. A default emptyDir
+  is root:root 0755, so `USER clamav` cannot create scan files there. A root
+  `prepare-work` step runs `chmod 1777 /work` before `extract-and-scan-image`.
+
 ## 0.3.6
 
 ### Fixed

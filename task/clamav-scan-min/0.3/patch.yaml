@@ -2,20 +2,21 @@
   path: /metadata/name
   value: clamav-scan-min
 # kustomize build task/clamav-scan/0.3 | yq '.spec.steps.[].name' | nl -v 0
-#     0	extract-and-scan-image
-#     1	upload
+#     0	prepare-work
+#     1	extract-and-scan-image
+#     2	upload
 - op: test
-  path: /spec/steps/0/name
+  path: /spec/steps/1/name
   value: extract-and-scan-image
 - op: replace
-  path: /spec/steps/0/computeResources/limits/memory
+  path: /spec/steps/1/computeResources/limits/memory
   value: 3Gi
 - op: replace
-  path: /spec/steps/0/computeResources/limits/cpu
+  path: /spec/steps/1/computeResources/limits/cpu
   value: 512m
 - op: replace
-  path: /spec/steps/0/computeResources/requests/memory
+  path: /spec/steps/1/computeResources/requests/memory
   value: 3Gi
 - op: replace
-  path: /spec/steps/0/computeResources/requests/cpu
+  path: /spec/steps/1/computeResources/requests/cpu
   value: 512m

@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.3.6"
+    app.kubernetes.io/version: "0.3.7"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "virus, konflux"
@@ -42,6 +42,26 @@ spec:
       default: "false"
 
   steps:
+    - name: prepare-work
+      image: quay.io/konflux-ci/clamav-db:latest
+      # A default emptyDir is root:root 0755. The scan step runs as the image
+      # USER, so widen /work as root before that step starts.
+      securityContext:
+        runAsUser: 0
+      computeResources:
+        limits:
+          memory: 64Mi
+          cpu: 100m
+        requests:
+          memory: 64Mi
+          cpu: 100m
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        chmod 1777 /work
+      volumeMounts:
+        - mountPath: /work
+          name: work
     - name: extract-and-scan-image
       # This image receives daily builds, ensuring we always have access to the latest virus definitions
       image: quay.io/konflux-ci/clamav-db:latest
