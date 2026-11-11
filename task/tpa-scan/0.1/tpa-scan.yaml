@@ -21,7 +21,7 @@ spec:
       default: ""
     - name: tpa-url
       description: The url of the TPA instance which will be used for scanning.
-      default: "https://exhort.stage.devshift.net/api/v5/analysis"
+      default: "https://rhda.rhcloud.com/api/v5/analysis"
     - name: ca-trust-config-map-name
       type: string
       description: The name of the ConfigMap to read CA bundle data from.
