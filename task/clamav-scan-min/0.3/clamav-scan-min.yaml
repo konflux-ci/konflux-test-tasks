@@ -6,7 +6,7 @@ metadata:
     tekton.dev/pipelines.minVersion: 0.12.1
     tekton.dev/tags: virus, konflux
   labels:
-    app.kubernetes.io/version: 0.3.6
+    app.kubernetes.io/version: 0.3.7
   name: clamav-scan-min
 spec:
   description: Scans the content of container images and OCI artifacts for viruses,
@@ -67,6 +67,15 @@ spec:
     script: |
       #!/usr/bin/env bash
       set -euo pipefail
+      # The image stays root so existing task bundles can still write /work.
+      # Drop to clamav after widening the emptyDir. /etc/clamd.d is mode 0777
+      # rather than 1777: sed -i replaces scan.conf, and a sticky directory
+      # only allows the file owner to do that.
+      if [ "$(id -u)" -eq 0 ]; then
+        chmod 1777 /work
+        chmod 0777 /etc/clamd.d
+        exec setpriv --reuid=clamav --regid=clamav --init-groups -- "$0" "$@"
+      fi
       # shellcheck disable=SC1091 # /utils.sh is only available in the container image at runtime
       . /utils.sh
       trap 'handle_error $(results.TEST_OUTPUT.path)' EXIT
