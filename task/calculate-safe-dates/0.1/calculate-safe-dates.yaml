@@ -1,0 +1,241 @@
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/tags: "konflux"
+  name: calculate-safe-dates
+spec:
+  description: >-
+    Fetches RHSAs data from security data API and calculates safe dates for them (Important 90 days, Critical 30 days). If the RHSA is past this range, emits a failure.
+  params:
+    - name: rhsas-found
+      description: RHSAs found from roxctl-scan
+  results:
+    - name: TEST_OUTPUT
+      description: Tekton task test output.
+  steps:
+    - name: calculate-safe-dates
+      image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
+      computeResources:
+        limits:
+          memory: 512Mi
+          cpu: 200m
+        requests:
+          memory: 256Mi
+          cpu: 100m
+      securityContext:
+        capabilities:
+          add:
+            - SETFCAP
+      env:
+        - name: RHSAS_FOUND
+          value: "$(params.rhsas-found)"
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        # shellcheck source=/dev/null
+        . /utils.sh
+        # Must use single quotes to preserve the json integrity
+        # shellcheck disable=SC2016
+        storedRhsas="$RHSAS_FOUND"
+        # first make sure we recieved something and we can read it, 1. check if result is truncated, 2. check if it is empty
+        # 3. check for dates
+
+        #VARS
+        severities=""
+        skipCrit=false
+        skipImp=false
+        days=0
+        found="[]"
+
+        # This is a fail-fast section
+        jq '.' <<< "$storedRhsas"
+        # shellcheck disable=SC2046
+        if [ $(jq 'has("truncated")' <<< "$storedRhsas") = true ]; then
+            echo "Result has been overflown, exiting now!"
+            note="Task $(context.task.name) failed, result from previous task (roxctl) has overflown."
+            TEST_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+            echo "${TEST_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+            exit 0
+        elif [ $(jq '.CRITICAL | length == 0' <<< "$storedRhsas" ) = true ] && [ $(jq '.IMPORTANT | length == 0' <<< "$storedRhsas") = true ]; then
+            echo "No Critical or Important severity RHSAs found."
+            echo "Overal result:"
+        cat << "EOF"
+         /$$$$$$$   /$$$$$$   /$$$$$$   /$$$$$$
+        | $$__  $$ /$$__  $$ /$$__  $$ /$$__  $$
+        | $$  \ $$| $$  \ $$| $$  \__/| $$  \__/
+        | $$$$$$$/| $$$$$$$$|  $$$$$$ |  $$$$$$
+        | $$____/ | $$__  $$ \____  $$ \____  $$
+        | $$      | $$  | $$ /$$  \ $$ /$$  \ $$
+        | $$      | $$  | $$|  $$$$$$/|  $$$$$$/
+        |__/      |__/  |__/ \______/  \______/
+        EOF
+            note="Task $(context.task.name) succeeded. No RHSAs were found"
+            TEST_OUTPUT=$(make_result_json -r "SUCCESS" -t "$note")
+            echo "${TEST_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"
+            exit 0
+        fi
+
+
+        # Prepare for a curl format
+        # shellcheck disable=SC2046
+        if [ $(jq '.CRITICAL | length != 0' <<< "$storedRhsas" ) = true ]; then
+            criticalRhsas=$(jq '.CRITICAL[]' <<< "$storedRhsas")
+            criticalCurlInput=$(jq -Rrs 'split("\n") | map(select(length > 0)) | join(",") | gsub("\""; "")' <<< "$criticalRhsas")
+            curl -f -sS https://access.redhat.com/hydra/rest/securitydata/csaf.json?rhsa_ids="$criticalCurlInput" > CRITICALSecurityDataOut.json
+        else
+            skipCrit=true
+        fi
+        # shellcheck disable=SC2046
+        if [ $(jq '.IMPORTANT | length != 0' <<< "$storedRhsas" ) = true ]; then
+            importantRhsas=$(jq '.IMPORTANT[]' <<< "$storedRhsas")
+            importantCurlInput=$(jq -Rrs 'split("\n") | map(select(length > 0)) | join(",") | gsub("\""; "")' <<< "$importantRhsas")
+            curl -f -sS https://access.redhat.com/hydra/rest/securitydata/csaf.json?rhsa_ids="$importantCurlInput" > IMPORTANTSecurityDataOut.json
+        else
+            skipImp=true
+        fi
+
+        # Parse output to standardized format
+        if [ $skipCrit = true ]; then
+            severities=("IMPORTANT")
+        fi
+        if [ $skipImp = true ]; then
+            severities=("CRITICAL")
+        fi
+        if [[ "$skipCrit" = false && "$skipImp" = false ]]; then
+            severities=("IMPORTANT" "CRITICAL")
+        fi
+
+        for sev in "${severities[@]}"
+        do
+            jq '
+            [
+            {
+                RHSA: (
+                reduce .[] as $item
+                    ({};
+                    if ($item.severity | type) == "string" then
+                        ($item.severity | ascii_upcase) as $severity
+                        | .[$severity] = (
+                            (.[$severity] // []) + [{
+                            advisory: $item.RHSA,
+                            released_on: $item.released_on,
+                            CVEs: $item.CVEs
+                            }]
+                        )
+                    else
+                        .
+                    end
+                    )
+                )
+            }
+            ]
+            | select(.[0].RHSA | length > 0)
+            ' "${sev}"SecurityDataOut.json > parsed"${sev}"Rhsa.json
+        done
+
+        # Calculate dates
+        for sev in "${severities[@]}"
+        do
+            if [[ "$sev" = "IMPORTANT" ]]; then
+                days=90
+            elif [[ "$sev" = "CRITICAL" ]]; then
+                days=30
+            fi
+            jq \
+                --arg severity "$sev" \
+                --argjson days "$days" '
+                map(
+                .RHSA[$severity] |= map(
+                    (.released_on | fromdateiso8601) as $released
+                    | ($released + ($days * 24 * 60 * 60)) as $safe_until
+                    | . + {
+                        safe_until: ($safe_until | todateiso8601),
+                        is_past_due: ($safe_until < now)
+                    }
+                )
+                )
+                ' parsed"${sev}"Rhsa.json > "${sev}"CalculatedDates.json
+        done
+
+        # Final announcement
+        cat << "EOF"
+         /$$ /$$  /$$$$$$    /$$     /$$                           /$$     /$$                     /$$ /$$
+        | $$| $$ /$$__  $$  | $$    | $$                          | $$    |__/                    | $$| $$
+        | $$| $$| $$  \ $$ /$$$$$$ /$$$$$$    /$$$$$$  /$$$$$$$  /$$$$$$   /$$  /$$$$$$  /$$$$$$$ | $$| $$
+        | $$| $$| $$$$$$$$|_  $$_/|_  $$_/   /$$__  $$| $$__  $$|_  $$_/  | $$ /$$__  $$| $$__  $$| $$| $$
+        |__/|__/| $$__  $$  | $$    | $$    | $$$$$$$$| $$  \ $$  | $$    | $$| $$  \ $$| $$  \ $$|__/|__/
+                | $$  | $$  | $$ /$$| $$ /$$| $$_____/| $$  | $$  | $$ /$$| $$| $$  | $$| $$  | $$
+        /$$ /$$| $$  | $$  |  $$$$/|  $$$$/|  $$$$$$$| $$  | $$  |  $$$$/| $$|  $$$$$$/| $$  | $$ /$$ /$$
+        |__/|__/|__/  |__/   \___/   \___/   \_______/|__/  |__/   \___/  |__/ \______/ |__/  |__/|__/|__/
+        EOF
+
+        echo "REPORTED RESULTS ARE FOR THIS EXACT MOMENT/TIME. ONCE RUN ON DIFFERENT PLACE(COLLECTORS), THE RESULTS MAY DIFFER."
+
+        # Merge json in case both severities are present
+        if [ ${#severities[@]} -gt 1 ]; then
+            echo "Merging jsons together"
+            # shellcheck disable=SC2035
+            jq -s add *CalculatedDates.json > merged.json
+        # Report what has been found
+            found=$(jq '
+                map(
+                    .RHSA |= with_entries(
+                        .value |= map(
+                            select(.is_past_due == true)
+                        )
+                    )
+                    | select([.RHSA[] | length > 0] | any)
+                )
+                ' merged.json)
+        else
+
+            found=$(jq '
+                map(
+                    .RHSA |= with_entries(
+                        .value |= map(
+                            select(.is_past_due == true)
+                        )
+                    )
+                )
+                | map(select([.RHSA[] | length > 0] | any))
+                ' "${sev}"CalculatedDates.json)
+        fi
+            if [[ $found == "[]" ]]; then
+              echo "Critical or Important RHSAs has been found, but they are within date tolerance. Important (90 days within release) Critical (30 days within release)."
+              echo "Your overal result is:"
+        cat << "EOF"
+         /$$      /$$  /$$$$$$  /$$$$$$$  /$$   /$$
+        | $$  /$ | $$ /$$__  $$| $$__  $$| $$$ | $$
+        | $$ /$$$| $$| $$  \ $$| $$  \ $$| $$$$| $$
+        | $$/$$ $$ $$| $$$$$$$$| $$$$$$$/| $$ $$ $$
+        | $$$$_  $$$$| $$__  $$| $$__  $$| $$  $$$$
+        | $$$/ \  $$$| $$  | $$| $$  \ $$| $$\  $$$
+        | $$/   \  $$| $$  | $$| $$  | $$| $$ \  $$
+        |__/     \__/|__/  |__/|__/  |__/|__/  \__/
+        EOF
+            note="Task $(context.task.name) completed. Critical or Important RHSAs has been found within date tolerance."
+            TEST_OUTPUT=$(make_result_json -r "WARNING" -t "$note")
+            else
+                echo "Critical or Important RHSAs has been found past their date tolerance. Important (90 days within release) Critical (30 days within release)."
+                echo "Your overal result is:"
+        cat << "EOF"
+         /$$$$$$$  /$$        /$$$$$$   /$$$$$$  /$$   /$$
+        | $$__  $$| $$       /$$__  $$ /$$__  $$| $$  /$$/
+        | $$  \ $$| $$      | $$  \ $$| $$  \__/| $$ /$$/
+        | $$$$$$$ | $$      | $$  | $$| $$      | $$$$$/
+        | $$__  $$| $$      | $$  | $$| $$      | $$  $$
+        | $$  \ $$| $$      | $$  | $$| $$    $$| $$\  $$
+        | $$$$$$$/| $$$$$$$$|  $$$$$$/|  $$$$$$/| $$ \  $$
+        |_______/ |________/ \______/  \______/ |__/  \__/
+        EOF
+            note="Task $(context.task.name) completed. Critical or Important RHSAs has been found past tolerable date."
+            TEST_OUTPUT=$(make_result_json -r "FAILURE" -t "$note")
+                echo "Found RHSAS past tolerable date:"
+                echo "$found"
+            fi
+        echo "${TEST_OUTPUT}" | tee "$(results.TEST_OUTPUT.path)"

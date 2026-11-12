@@ -10,3 +10,4 @@
 /task/pickle-scan-oci-ta                        @konflux-ci/integration-service-maintainers
 /task/roxctl-scan                               @konflux-ci/integration-service-maintainers
 /task/tpa-scan                                  @konflux-ci/integration-service-maintainers
+/task/calculate-safe-dates                      @konflux-ci/integration-service-maintainers
