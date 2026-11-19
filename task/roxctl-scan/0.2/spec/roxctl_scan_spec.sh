@@ -87,60 +87,149 @@ Describe "roxctl scan JSON escape sanitization"
     End
 
     Describe "valid escape preservation"
-        It "preserves backslash-n newline escape"
+        It "preserves backslash-n newline and parses before and after"
             printf '{"t": "line1\\nline2"}' > test.json
+            jq -r '.t' test.json > /dev/null
             cp test.json expected.json
-            When call fix_json_escapes test.json
+            fix_json_escapes test.json
+            When call jq -r '.t' test.json
             The status should be success
+            The output should equal "$(printf 'line1\nline2')"
             The contents of file "test.json" should equal "$(cat expected.json)"
         End
 
-        It "preserves backslash-t tab escape"
+        It "preserves backslash-t tab and parses before and after"
             printf '{"t": "col1\\tcol2"}' > test.json
+            jq -r '.t' test.json > /dev/null
+            cp test.json expected.json
+            fix_json_escapes test.json
+            When call jq -r '.t' test.json
+            The status should be success
+            The output should equal "$(printf 'col1\tcol2')"
+            The contents of file "test.json" should equal "$(cat expected.json)"
+        End
+
+        It "preserves backslash-r carriage return"
+            printf '{"t": "a\\rb"}' > test.json
+            jq -r '.t' test.json > /dev/null
             cp test.json expected.json
             When call fix_json_escapes test.json
             The status should be success
             The contents of file "test.json" should equal "$(cat expected.json)"
         End
 
-        It "preserves escaped quote"
-            printf '{"t": "say \\\\"hello\\\\""}' > test.json
+        It "parses after preserving backslash-r"
+            printf '{"t": "a\\rb"}' > test.json
+            fix_json_escapes test.json
+            When call jq -e '.t' test.json
+            The status should be success
+            The output should not equal ''
+        End
+
+        It "preserves backslash-b backspace"
+            printf '{"t": "a\\bb"}' > test.json
+            jq -r '.t' test.json > /dev/null
             cp test.json expected.json
             When call fix_json_escapes test.json
             The status should be success
+            The contents of file "test.json" should equal "$(cat expected.json)"
+        End
+
+        It "parses after preserving backslash-b"
+            printf '{"t": "a\\bb"}' > test.json
+            fix_json_escapes test.json
+            When call jq -e '.t' test.json
+            The status should be success
+            The output should not equal ''
+        End
+
+        It "preserves backslash-f form feed"
+            printf '{"t": "a\\fb"}' > test.json
+            jq -r '.t' test.json > /dev/null
+            cp test.json expected.json
+            When call fix_json_escapes test.json
+            The status should be success
+            The contents of file "test.json" should equal "$(cat expected.json)"
+        End
+
+        It "parses after preserving backslash-f"
+            printf '{"t": "a\\fb"}' > test.json
+            fix_json_escapes test.json
+            When call jq -e '.t' test.json
+            The status should be success
+            The output should not equal ''
+        End
+
+        It "preserves escaped quote and decodes correctly"
+            printf '{"t": "say \\"hello\\""}' > test.json
+            jq -r '.t' test.json > /dev/null
+            cp test.json expected.json
+            fix_json_escapes test.json
+            When call jq -r '.t' test.json
+            The status should be success
+            The output should equal 'say "hello"'
             The contents of file "test.json" should equal "$(cat expected.json)"
         End
 
         It "preserves valid backslash pair"
             printf '{"p": "foo\\\\bar"}' > test.json
+            jq -r '.p' test.json > /dev/null
             cp test.json expected.json
-            When call fix_json_escapes test.json
+            fix_json_escapes test.json
+            When call jq -r '.p' test.json
             The status should be success
+            The output should equal 'foo\bar'
             The contents of file "test.json" should equal "$(cat expected.json)"
         End
 
         It "preserves unicode escape"
             printf '{"u": "\\u0041"}' > test.json
+            jq -r '.u' test.json > /dev/null
             cp test.json expected.json
-            When call fix_json_escapes test.json
+            fix_json_escapes test.json
+            When call jq -r '.u' test.json
             The status should be success
+            The output should equal 'A'
             The contents of file "test.json" should equal "$(cat expected.json)"
         End
 
         It "preserves solidus escape"
             printf '{"p": "a\\/b"}' > test.json
+            jq -r '.p' test.json > /dev/null
+            cp test.json expected.json
+            fix_json_escapes test.json
+            When call jq -r '.p' test.json
+            The status should be success
+            The output should equal 'a/b'
+            The contents of file "test.json" should equal "$(cat expected.json)"
+        End
+
+        It "preserves valid backslash pair before paren (literal \\()"
+            printf '{"v": "x\\\\(y)"}' > test.json
+            jq -r '.v' test.json > /dev/null
+            cp test.json expected.json
+            fix_json_escapes test.json
+            When call jq -r '.v' test.json
+            The status should be success
+            The output should equal 'x\(y)'
+            The contents of file "test.json" should equal "$(cat expected.json)"
+        End
+
+        It "leaves already-valid JSON completely unchanged"
+            printf '{"a":"clean","b":"no\\\\issues","c":"with\\nnewline"}' > test.json
+            jq '.' test.json > /dev/null
             cp test.json expected.json
             When call fix_json_escapes test.json
             The status should be success
             The contents of file "test.json" should equal "$(cat expected.json)"
         End
 
-        It "leaves already-valid JSON completely unchanged"
+        It "already-valid JSON still parses after sanitizer"
             printf '{"a":"clean","b":"no\\\\issues","c":"with\\nnewline"}' > test.json
-            cp test.json expected.json
-            When call fix_json_escapes test.json
+            fix_json_escapes test.json
+            When call jq -r '.b' test.json
             The status should be success
-            The contents of file "test.json" should equal "$(cat expected.json)"
+            The output should equal 'no\issues'
         End
     End
 
@@ -190,6 +279,32 @@ Describe "roxctl scan JSON escape sanitization"
             The output should include "Warning"
             The output should include "raw control bytes"
             The contents of file "test.json" should equal "$(cat expected.json)"
+        End
+
+        It "SOH file still fails jq after skipped fix"
+            printf '{"v": "has\x01soh"}' > test.json
+            fix_json_escapes test.json 2>/dev/null
+            When call jq '.' test.json
+            The status should be failure
+            The stderr should include "parse error"
+        End
+    End
+
+    Describe "unrelated malformed JSON still fails jq"
+        It "malformed unicode escape fails jq after sanitizer"
+            printf '{"v": "bad \\u00GZ"}' > test.json
+            fix_json_escapes test.json
+            When call jq '.' test.json
+            The status should be failure
+            The stderr should include "parse error"
+        End
+
+        It "unterminated string fails jq after sanitizer"
+            printf '{"v": "no end\\"}' > test.json
+            fix_json_escapes test.json
+            When call jq '.' test.json
+            The status should be failure
+            The stderr should include "parse error"
         End
     End
 End
