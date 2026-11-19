@@ -104,10 +104,10 @@ spec:
 
         # Parse output to standardized format
         if [ $skipCrit = false ]; then
-            severities+=("IMPORTANT")
+            severities+=("CRITICAL")
         fi
         if [ $skipImp = false ]; then
-            severities+=("CRITICAL")
+            severities+=("IMPORTANT")
         fi
 
         for sev in "${severities[@]}"
