@@ -219,9 +219,14 @@ spec:
             # STONEINTG-1899: fix invalid JSON escape sequences where a backslash
             # precedes a character that is not a valid JSON escape target. Uses a
             # 3-pass approach to preserve already-valid \\ pairs and other escapes.
-            sed -i 's/\\\\/\x01/g' "$rox_file"
-            sed -E -i 's/\\([^"\\\/bfnrtu])/\\\\\1/g' "$rox_file"
-            sed -i 's/\x01/\\\\/g' "$rox_file"
+            # Guard: skip fix if file contains raw SOH bytes (placeholder collision).
+            if LC_ALL=C grep -q "$(printf '\001')" "$rox_file"; then
+              echo "Warning: $rox_file contains raw control bytes, skipping JSON escape fix"
+            else
+              sed -i 's/\\\\/\x01/g' "$rox_file"
+              sed -E -i 's/\\([^"\\\/bfnrtu])/\\\\\1/g' "$rox_file"
+              sed -i 's/\x01/\\\\/g' "$rox_file"
+            fi
             jq -s -f /parse_to_cve_oriented_output.jq "$rox_file" | tee "/tekton/home/pre-parsed-rox-output-${arch}.json"
             jq '{roxctl_new: .}' "/tekton/home/pre-parsed-rox-output-${arch}.json" > "/tekton/home/parsed-rox-output-${arch}.json"
           fi
