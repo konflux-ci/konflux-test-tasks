@@ -4,7 +4,7 @@ kind: Task
 metadata:
   name: roxctl-scan
   labels:
-    app.kubernetes.io/version: "0.2"
+    app.kubernetes.io/version: "0.2.1"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "konflux"
@@ -218,6 +218,12 @@ spec:
             arch=$(basename "$rox_file" | sed 's/rox-output-//;s/.json//')
             #STONEINTG-1878 quickfix, create more robust solution
             sed -E -i 's/%!(.)\(MISSING\)/%\1/g; s/%!\(NOVERB\)/%/g' "$rox_file"
+            # STONEINTG-1899: fix invalid JSON escape sequences where a backslash
+            # precedes a character that is not a valid JSON escape target. Uses a
+            # 3-pass approach to preserve already-valid \\ pairs and other escapes.
+            sed -i 's/\\\\/\x01/g' "$rox_file"
+            sed -E -i 's/\\([^"\\\/bfnrtu])/\\\\\1/g' "$rox_file"
+            sed -i 's/\x01/\\\\/g' "$rox_file"
             jq -s -f /parse_to_cve_oriented_output.jq "$rox_file" | tee "/tekton/home/pre-parsed-rox-output-${arch}.json"
             jq '{roxctl_new: .}' "/tekton/home/pre-parsed-rox-output-${arch}.json" > "/tekton/home/parsed-rox-output-${arch}.json"
             jq -f /parse_acs_to_rhsa.jq "/tekton/home/pre-parsed-rox-output-${arch}.json" >> "/tekton/home/rhsas.json" || true

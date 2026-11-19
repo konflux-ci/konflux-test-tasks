@@ -2,12 +2,24 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.2.1
+
+### Fixed
+
+- Fixed invalid JSON escape sequences in roxctl scan output that caused jq parsing failures
+
 ## 0.2
 
 ### Added
 
 - Added new result: **ACS_RHSAS** that contains found critical and important CVEs RHSAS
 - Added new step: **get-rhsas** fetches all critical and important RHSAs from parsed roxctl-scan output and stores it in the result mentioned above
+
+## 0.1.2
+
+### Fixed
+
+- Fixed invalid JSON escape sequences in roxctl scan output that caused jq parsing failures
 
 ## 0.1.1
 
