@@ -2,6 +2,12 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.1.3
+
+### Fixed
+
+- Align with KONFLUX-14352 / KONFLUX-15254 resource policy: drop `limits.cpu` on all steps; keep existing `requests` (`pickle-scan` 2Gi/800m, `oci-attach-report` and `evaluate-policy` 256Mi/100m).
+
 ## 0.1.2
 
 ### Changed
