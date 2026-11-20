@@ -10,6 +10,12 @@ If that's not something you ever plan to do, consider removing this section.
 -->
 
 *Nothing yet.*
+## 0.4.2
+
+### Fixed
+
+- Drop `limits.cpu` on all steps for KONFLUX-14352 / KONFLUX-14368 policy compliance (`requests.cpu` unchanged).
+
 ## 0.4.1
 
 ### Changed 
