@@ -12,17 +12,25 @@ fi
 
 task_script="$(mktemp --tmpdir clamav-scan-script_XXXXXXXXXX.sh)"
 platform_helpers="$(mktemp --tmpdir clamav-scan-platform-helpers_XXXXXXXXXX.sh)"
+scan_helpers="$(mktemp --tmpdir clamav-scan-helpers_XXXXXXXXXX.sh)"
 yq -r '.spec.steps[] | select(.name == "extract-and-scan-image").script' "${task_path}" > "${task_script}"
 awk '
   /^# BEGIN PLATFORM HELPERS$/ { capture = 1; next }
   /^# END PLATFORM HELPERS$/ { capture = 0 }
   capture
 ' "${task_script}" > "${platform_helpers}"
+awk '
+  /^(extract_archives|ensure_clamd_user)\(\) \{/ { capture = 1 }
+  capture
+  capture && /^}$/ { capture = 0 }
+' "${task_script}" > "${scan_helpers}"
 # shellcheck source=/dev/null
 . "${platform_helpers}"
+# shellcheck source=/dev/null
+. "${scan_helpers}"
 
 cleanup() {
-    rm -f "${task_script}" "${platform_helpers}"
+    rm -f "${task_script}" "${platform_helpers}" "${scan_helpers}"
 }
 trap cleanup EXIT
 
@@ -166,5 +174,50 @@ Describe "platform-aware image handling"
 
         When call extract_full_image "registry.example/image@sha256:windows" "content-windows-amd64" "windows/amd64"
         The output should eq "oc image extract --confirm --only-files=true --registry-config ${HOME}/.docker/config.json registry.example/image@sha256:windows --path=/:content-windows-amd64 --filter-by-os=windows/amd64"
+    End
+End
+
+Describe "unprivileged archive extraction and clamd user"
+    It "unpacks archives without restoring owner, mode, or xattrs"
+        dir=$(mktemp -d)
+        capture=$(mktemp)
+        printf 'payload' > "${dir}/blob"
+        # shellcheck disable=SC2329,SC2317 # Invoked indirectly by extract_archives.
+        bsdtar() {
+            if [[ "$1" == "-tf" ]]; then
+                echo entry
+                return 0
+            fi
+            printf '%s\n' "$*" >> "${capture}"
+            return 0
+        }
+        export -f bsdtar
+
+        When call extract_archives "${dir}"
+        The contents of file "${capture}" should eq "-xf ${dir}/blob -C ${dir}/blob.d --no-same-owner --no-same-permissions --no-xattrs --no-acls --no-fflags"
+    End
+
+    It "sets User clamav when scan.conf does not name a user"
+        conf=$(mktemp)
+        printf 'MaxThreads 8\n' > "${conf}"
+
+        When call ensure_clamd_user "${conf}"
+        The contents of file "${conf}" should eq "$(printf 'MaxThreads 8\nUser clamav\n')"
+    End
+
+    It "sets User clamav when the only existing directive is commented out"
+        conf=$(mktemp)
+        printf '#User clamav\n' > "${conf}"
+
+        When call ensure_clamd_user "${conf}"
+        The contents of file "${conf}" should eq "$(printf '#User clamav\nUser clamav\n')"
+    End
+
+    It "replaces an explicit root user with clamav"
+        conf=$(mktemp)
+        printf 'User root\nMaxThreads 8\n' > "${conf}"
+
+        When call ensure_clamd_user "${conf}"
+        The contents of file "${conf}" should eq "$(printf 'User clamav\nMaxThreads 8\n')"
     End
 End

@@ -37,6 +37,17 @@ such as `linux/amd64`, `windows/amd64`, or `darwin/arm64`. In the operating
 system portion of a platform, `mac`, `macos`, and `osx` are accepted as aliases
 for `darwin` (for example, `mac/arm64`).
 
+## Version 0.3.7:
+The extract step stays root because `start-clamd.sh` rewrites
+`/etc/clamd.d/scan.conf`, and `clamd` drops privileges only when root starts
+it with `User` set. The task forces `User clamav` before starting the daemon,
+so the process that parses untrusted image and archive content is `clamav`.
+`clamdscan --fdpass` opens the extracted files and passes the descriptors.
+The step drops every capability and sets `allowPrivilegeEscalation: false`.
+Nested `bsdtar` extraction does not restore ownership, permissions, ACLs,
+file flags, or extended attributes, which keeps unpacking working with that
+capability set and avoids materializing setuid files from archives.
+
 ## Version 0.3.6:
 Konflux scheduling labels append a node-pool id to the operating system, for
 example `linux-m2xlarge/arm64`. Before a manifest is selected, the text after

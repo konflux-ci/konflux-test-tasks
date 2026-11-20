@@ -11,6 +11,18 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.3.7
+
+### Changed
+
+- Run `clamd` as the `clamav` user. The extract step stays root so
+  `start-clamd.sh` can rewrite `/etc/clamd.d/scan.conf` and so `clamd` honors
+  its `User` directive. `clamdscan --fdpass` opens the extracted files.
+- Drop every capability on the extract step and set
+  `allowPrivilegeEscalation: false`. Nested `bsdtar` extraction no longer
+  restores owner, permissions, ACLs, file flags, or extended attributes, so
+  unpacking still succeeds with that capability set.
+
 ## 0.3.6
 
 ### Fixed

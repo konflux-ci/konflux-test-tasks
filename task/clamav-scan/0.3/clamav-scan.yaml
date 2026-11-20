@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.3.6"
+    app.kubernetes.io/version: "0.3.7"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "virus, konflux"
@@ -48,11 +48,16 @@ spec:
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       workingDir: /work
-      # need to change user since 'oc image extract' requires more privileges when running as root permissions
-      # https://bugzilla.redhat.com/show_bug.cgi?id=1969929
+      # Stay root so start-clamd.sh can rewrite /etc/clamd.d/scan.conf and so
+      # clamd honors User and drops privileges. The daemon, not this step, is
+      # the process that parses untrusted content. oc image extract is invoked
+      # without --preserve-permissions, so SETFCAP is not required. The empty
+      # capability set and allowPrivilegeEscalation=false keep a parser bug
+      # from gaining privileges through setuid bits or file capabilities.
       securityContext:
+        allowPrivilegeEscalation: false
         capabilities:
-          add: ["SETFCAP"]
+          drop: ["ALL"]
       env:
         - name: HOME
           value: /work
@@ -89,7 +94,14 @@ spec:
             if bsdtar -tf "$f" 2>/dev/null | grep -q .; then
               out="${f}.d"
               mkdir -p "$out"
-              if bsdtar -xf "$f" -C "$out" >/dev/null 2>&1; then
+              # This step has no capabilities. Restoring owner, mode, ACLs,
+              # file flags, or xattrs needs CHOWN, DAC_OVERRIDE, or SETFCAP
+              # and fails closed. clamd has ScanArchive disabled, so a failed
+              # unpack would leave that content unscanned.
+              if bsdtar -xf "$f" -C "$out" \
+                --no-same-owner --no-same-permissions \
+                --no-xattrs --no-acls --no-fflags \
+                >/dev/null 2>&1; then
                 rm -f "$f"
                 extract_archives "$out"
               else
@@ -101,7 +113,28 @@ spec:
           done
         }
 
-        # Start clamd in background
+        # clamd parses untrusted layers. It drops privileges only when root
+        # starts it and scan.conf names a User. Force that user so an image
+        # that leaves User unset, or sets it to root, cannot scan as uid 0.
+        ensure_clamd_user() {
+          local conf="$1"
+          local tmp line found=0
+          tmp=$(mktemp)
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            if [[ "$line" =~ ^[[:space:]]*User[[:space:]]+ ]]; then
+              printf 'User clamav\n' >> "$tmp"
+              found=1
+            else
+              printf '%s\n' "$line" >> "$tmp"
+            fi
+          done < "$conf"
+          if [[ "$found" -eq 0 ]]; then
+            printf 'User clamav\n' >> "$tmp"
+          fi
+          mv "$tmp" "$conf"
+        }
+
+        ensure_clamd_user /etc/clamd.d/scan.conf
         /start-clamd.sh
 
         # Bootstrap .docker config in overridden HOME.
