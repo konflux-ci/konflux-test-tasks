@@ -2,6 +2,15 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.3.7
+
+### Fixed
+
+- Run the scan as the existing `clamav` user without changing the image
+  user. The step starts as root, makes `/work` mode 1777 and `/etc/clamd.d`
+  mode 0777, then re-execs itself with `setpriv`. Published task bundles stay
+  root because the image does not set `USER`.
+
 ## 0.3.6
 
 ### Fixed
