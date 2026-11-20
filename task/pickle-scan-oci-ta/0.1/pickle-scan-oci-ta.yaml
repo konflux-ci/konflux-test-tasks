@@ -7,7 +7,7 @@ metadata:
     tekton.dev/pipelines.minVersion: 0.12.1
     tekton.dev/tags: pickle, security, konflux
   labels:
-    app.kubernetes.io/version: 0.1.2
+    app.kubernetes.io/version: 0.1.3
 spec:
   description: Scans OCI artifacts and AI model files for malicious pickle
     files using picklescan. Uses trusted artifacts for source data. Pickle
@@ -76,6 +76,12 @@ spec:
       args:
         - use
         - $(params.SOURCE_ARTIFACT)=/var/workdir/source
+      computeResources:
+        limits:
+          memory: 3Gi
+        requests:
+          cpu: 50m
+          memory: 3Gi
     - name: fetch-extra-artifacts
       image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:d7e9f457d819b91d5f4b62effea105d54c6e54bedcc3afb2a7a9fcaaf752076b
       workingDir: /var/workdir
@@ -154,7 +160,7 @@ spec:
           memory: 2Gi
         requests:
           cpu: 100m
-          memory: 512Mi
+          memory: 2Gi
     - name: pickle-scan
       image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
       workingDir: /tekton/home
@@ -218,7 +224,6 @@ spec:
         fi
       computeResources:
         limits:
-          cpu: 800m
           memory: 2Gi
         requests:
           cpu: 800m
@@ -266,7 +271,6 @@ spec:
           "picklescan-report.json:${MEDIA_TYPE}"
       computeResources:
         limits:
-          cpu: 100m
           memory: 256Mi
         requests:
           cpu: 100m
@@ -326,7 +330,6 @@ spec:
         echo '{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": ["'"$IMAGE_DIGEST"'"]}}' | tee "$(results.IMAGES_PROCESSED.path)"
       computeResources:
         limits:
-          cpu: 100m
           memory: 256Mi
         requests:
           cpu: 100m

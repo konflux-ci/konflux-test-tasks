@@ -2,6 +2,14 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.1.3
+
+### Fixed
+
+- KONFLUX-15254: regenerate with `ta-generator@v1.2.0` so `use-trusted-artifact` gets default computeResources (3Gi/50m, mem req=lim, no `limits.cpu`).
+- Align `fetch-extra-artifacts` `requests.memory` with `limits.memory` (2Gi).
+- Drop `limits.cpu` on inherited steps via base task update.
+
 ## 0.1.2
 
 ### Added
