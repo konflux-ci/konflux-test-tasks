@@ -3,7 +3,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.4.1"
+    app.kubernetes.io/version: "0.4.2"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "konflux"
@@ -59,7 +59,6 @@ spec:
       computeResources:
         limits:
           memory: 256Mi
-          cpu: 100m
         requests:
           memory: 256Mi
           cpu: 100m
@@ -103,7 +102,6 @@ spec:
       computeResources:
         limits:
           memory: 7Gi
-          cpu: 800m
         requests:
           memory: 7Gi
           cpu: 800m
@@ -200,7 +198,6 @@ spec:
       computeResources:
         limits:
           memory: 256Mi
-          cpu: 100m
         requests:
           memory: 256Mi
           cpu: 100m
@@ -266,7 +263,6 @@ spec:
       computeResources:
         limits:
           memory: 256Mi
-          cpu: 100m
         requests:
           memory: 256Mi
           cpu: 100m

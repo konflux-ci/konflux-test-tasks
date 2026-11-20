@@ -6,7 +6,7 @@ metadata:
     tekton.dev/pipelines.minVersion: 0.12.1
     tekton.dev/tags: konflux
   labels:
-    app.kubernetes.io/version: 0.4.1
+    app.kubernetes.io/version: 0.4.2
   name: clair-scan-min
 spec:
   description: Scans container images for vulnerabilities using Clair, by comparing
@@ -57,7 +57,6 @@ spec:
   steps:
   - computeResources:
       limits:
-        cpu: 100m
         memory: 256Mi
       requests:
         cpu: 100m
@@ -101,7 +100,6 @@ spec:
         - SETFCAP
   - computeResources:
       limits:
-        cpu: 100m
         memory: 512Mi
       requests:
         cpu: 100m
@@ -198,7 +196,6 @@ spec:
     workingDir: /tekton/home
   - computeResources:
       limits:
-        cpu: 100m
         memory: 256Mi
       requests:
         cpu: 100m
@@ -262,7 +259,6 @@ spec:
     workingDir: /tekton/home
   - computeResources:
       limits:
-        cpu: 100m
         memory: 256Mi
       requests:
         cpu: 100m
