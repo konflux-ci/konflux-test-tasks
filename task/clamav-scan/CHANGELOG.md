@@ -2,6 +2,12 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.3.7
+
+### Fixed
+
+- Drop `limits.cpu` on all steps for KONFLUX-14352 / KONFLUX-14369 policy compliance (`requests.cpu` unchanged).
+
 ## 0.3.6
 
 ### Fixed

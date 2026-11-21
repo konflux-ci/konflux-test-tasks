@@ -6,7 +6,7 @@ metadata:
     tekton.dev/pipelines.minVersion: 0.12.1
     tekton.dev/tags: virus, konflux
   labels:
-    app.kubernetes.io/version: 0.3.6
+    app.kubernetes.io/version: 0.3.7
   name: clamav-scan-min
 spec:
   description: Scans the content of container images and OCI artifacts for viruses,
@@ -46,7 +46,6 @@ spec:
   steps:
   - computeResources:
       limits:
-        cpu: 512m
         memory: 3Gi
       requests:
         cpu: 512m
@@ -674,7 +673,6 @@ spec:
     workingDir: /work
   - computeResources:
       limits:
-        cpu: 100m
         memory: 256Mi
       requests:
         cpu: 100m
