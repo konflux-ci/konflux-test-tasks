@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.3.6"
+    app.kubernetes.io/version: "0.3.7"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "virus, konflux"
@@ -67,7 +67,6 @@ spec:
       computeResources:
         limits:
           memory: 12Gi
-          cpu: 7300m
         requests:
           memory: 12Gi
           cpu: 7300m
@@ -679,7 +678,6 @@ spec:
       computeResources:
         limits:
           memory: 256Mi
-          cpu: 100m
         requests:
           memory: 256Mi
           cpu: 100m
