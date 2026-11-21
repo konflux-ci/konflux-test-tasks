@@ -2,6 +2,12 @@
 
 <!-- Format guidelines: https://keepachangelog.com/en/1.1.0/#how -->
 
+## 0.5.1
+
+### Fixed
+
+- Drop `limits.cpu` on `check-images` for KONFLUX-14352 / KONFLUX-14370 policy compliance (`requests.cpu` unchanged).
+
 ## 0.5
 
 ### Added
