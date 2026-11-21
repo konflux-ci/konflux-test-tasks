@@ -44,7 +44,7 @@ spec:
         readOnly: true
   steps:
     - name: get-image-manifests
-      image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
+      image: quay.io/konflux-ci/konflux-test:v1.5.11@sha256:3e54b27ccc83159c52dd1602e563b2b35b4811fd2b9c754bc1ca84b8cc430cd5
       # the clair-in-ci image neither has skopeo or jq installed. Hence, we create an extra step to get the image manifest digests
       computeResources:
         limits:
@@ -191,7 +191,7 @@ spec:
         done
         echo "${reports_json}" > reports.json
     - name: conftest-vulnerabilities
-      image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
+      image: quay.io/konflux-ci/konflux-test:v1.5.11@sha256:3e54b27ccc83159c52dd1602e563b2b35b4811fd2b9c754bc1ca84b8cc430cd5
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       computeResources:
