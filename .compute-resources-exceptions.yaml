@@ -1,0 +1,62 @@
+# Exceptions for the compute-resources check introduced by the shared CI update.
+# Each entry grandfathers pre-existing violations. Fix individually in follow-up PRs.
+exceptions:
+  - path: task/clair-scan/0.1/clair-scan.yaml
+    steps:
+      - get-image-manifests
+      - get-vulnerabilities
+      - conftest-vulnerabilities
+  - path: task/clair-scan/0.2/clair-scan.yaml
+    steps:
+      - get-image-manifests
+      - get-vulnerabilities
+      - oci-attach-report
+      - conftest-vulnerabilities
+  - path: task/clamav-scan/0.1/clamav-scan.yaml
+    steps:
+      - extract-and-scan-image
+      - upload
+    sidecars:
+      - database
+  - path: task/clamav-scan/0.2/clamav-scan.yaml
+    steps:
+      - extract-and-scan-image
+      - upload
+  - path: task/deprecated-image-check/0.1/deprecated-image-check.yaml
+    steps:
+      - query-pyxis
+      - run-conftest
+  - path: task/deprecated-image-check/0.2/deprecated-image-check.yaml
+    steps:
+      - query-pyxis
+      - run-conftest
+  - path: task/deprecated-image-check/0.3/deprecated-image-check.yaml
+    steps:
+      - check-images
+  - path: task/deprecated-image-check/0.4/deprecated-image-check.yaml
+    steps:
+      - check-images
+  - path: task/fixed-rhsa-check/0.1/fixed-rhsa-check.yaml
+    steps:
+      - fixed-rhsa-check
+  - path: task/pickle-scan-oci-ta/0.1/pickle-scan-oci-ta.yaml
+    steps:
+      - use-trusted-artifact
+      - fetch-extra-artifacts
+  - path: task/roxctl-scan/0.1/roxctl-scan.yaml
+    steps:
+      - exchange-service-account-token
+      - get-image-manifests
+      - rox-image-scan
+      - proccess-output
+      - oci-attach-report
+      - conftest-vulnerabilities
+  - path: task/roxctl-scan/0.2/roxctl-scan.yaml
+    steps:
+      - exchange-service-account-token
+      - get-image-manifests
+      - rox-image-scan
+      - proccess-output
+      - oci-attach-report
+      - conftest-vulnerabilities
+      - get-rhsas
