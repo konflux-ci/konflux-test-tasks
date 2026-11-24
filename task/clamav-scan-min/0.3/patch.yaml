@@ -11,9 +11,6 @@
   path: /spec/steps/0/computeResources/limits/memory
   value: 3Gi
 - op: replace
-  path: /spec/steps/0/computeResources/limits/cpu
-  value: 512m
-- op: replace
   path: /spec/steps/0/computeResources/requests/memory
   value: 3Gi
 - op: replace
