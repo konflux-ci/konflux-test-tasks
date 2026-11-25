@@ -51,6 +51,7 @@ Currently available integration tests:
 - `test-pickle-scan-oci-ta.yaml` - Validates the pickle-scan-oci-ta task outputs (TEST_OUTPUT, IMAGES_PROCESSED)
 - `test-roxctl-scan.yaml` - Validates the roxctl-scan task outputs (TEST_OUTPUT, SCAN_OUTPUT, IMAGES_PROCESSED, REPORTS)
 - `test-tpa-scan.yaml` - Validates the tpa-scan task outputs (TEST_OUTPUT, SCAN_OUTPUT, IMAGES_PROCESSED, REPORTS)
+- `test-fixed-rhsa-check.yaml` - Validates found RHSAs from roxctl scan(TEST_OUTPUT)
 - `validate-migration.yaml` - Validates the migration file introduced by a branch
 
 ### Scripts

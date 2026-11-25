@@ -1,0 +1,96 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: test-fixed-rhsa-check
+  labels:
+    appstudio.openshift.io/application: konflux-test-tasks
+    appstudio.openshift.io/component: fixed-rhsa-check-v01
+spec:
+  pipelineSpec:
+    results:
+      - name: TEST_OUTPUT
+        value: "$(tasks.check-results.results.TEST_OUTPUT)"
+    tasks:
+      - name: roxctl-scan
+        taskRef:
+          resolver: git
+          params:
+            - name: url
+              value: https://github.com/konflux-ci/konflux-test-tasks.git
+            - name: revision
+              value: main
+            - name: pathInRepo
+              value: task/roxctl-scan/0.2/roxctl-scan.yaml
+        params:
+          - name: skip-upload
+            value: "true"
+          - name: image-url
+            value: "quay.io/konflux-ci/konflux-test:v1.5.4"
+          - name: image-digest
+            value: "sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b"
+      - name: fixed-rhsa-check
+        taskRef:
+          resolver: git
+          params:
+            - name: url
+              value: https://github.com/konflux-ci/konflux-test-tasks.git
+            - name: revision
+              value: main
+            - name: pathInRepo
+              value: task/fixed-rhsa-check/0.1/fixed-rhsa-check.yaml
+        runAfter:
+          - roxctl-scan
+        params:
+          - name: rhsas-found
+            value: {"CRITICAL": [], "IMPORTANT": []}
+      - name: check-results
+        runAfter:
+          - fixed-rhsa-check
+        params:
+          - name: TEST_OUTPUT
+            value: "$(tasks.fixed-rhsa-check.results.TEST_OUTPUT)"
+          - name: ACS_RHSAS
+            value: "$(tasks.roxctl-scan.results.ACS_RHSAS)"
+        taskSpec:
+          params:
+            - name: TEST_OUTPUT
+            - name: ACS_RHSAS
+          results:
+            - name: TEST_OUTPUT
+          steps:
+            - name: validate-results
+              image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
+              env:
+                - name: TEST_OUTPUT
+                  value: "$(params.TEST_OUTPUT)"
+                - name: ACS_RHSAS
+                  value: "$(params.ACS_RHSAS)"
+              script: |
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                echo "$TEST_OUTPUT" | jq -e 'has("result")' > /dev/null || exit 1
+                result=$(echo "$TEST_OUTPUT" | jq -r '.result')
+
+                if [[ "$result" != "SUCCESS" && "$result" != "WARNING" && "$result" != "FAILURE" ]]; then
+                  echo "FAIL: Unexpected result status: $result"
+                  exit 1
+                fi
+
+                echo "PASS: TEST_OUTPUT result=$result"
+
+                if echo "$ACS_RHSAS" | jq -e 'type == "object"' > /dev/null; then
+                   echo "PASS: ACS_RHSAS is not empty"
+                   if echo "$ACS_RHSAS" | jq -e '.IMPORTANT | length != 0'; then
+                     echo "IMPORTANT RHSAs found!"
+                   else
+                      exit 1
+                   fi
+                else
+                   exit 1
+                fi
+                echo -n "$TEST_OUTPUT" > "$(results.TEST_OUTPUT.path)"
+  timeouts:
+    pipeline: 1h0m0s
+    tasks: 45m0s
