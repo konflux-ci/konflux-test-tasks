@@ -102,7 +102,7 @@ spec:
         - --insecure-skip-tls-verify=$(INSECURE)
         - --token-file=/service-account-token/token
     - name: get-image-manifests
-      image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
+      image: quay.io/konflux-ci/konflux-test:v1.5.12@sha256:18652fc45eb5f3f474673bc0b9bcea1d3431dbb68d9a90ad2553668721f325f5
       # the roxctl image neither has skopeo or jq installed. Hence, we create an extra step to get the image manifest digests
       computeResources:
         limits:
@@ -205,7 +205,7 @@ spec:
           scan_image "$IMAGE" "image-index"
         fi
     - name: proccess-output
-      image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
+      image: quay.io/konflux-ci/konflux-test:v1.5.12@sha256:18652fc45eb5f3f474673bc0b9bcea1d3431dbb68d9a90ad2553668721f325f5
       env:
         - name: IMAGE_URL
           value: $(params.image-url)
@@ -321,7 +321,7 @@ spec:
         echo "${reports_json}" > reports.json
         cat /tekton/home/reports.json > "$(results.REPORTS.path)"
     - name: conftest-vulnerabilities
-      image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
+      image: quay.io/konflux-ci/konflux-test:v1.5.12@sha256:18652fc45eb5f3f474673bc0b9bcea1d3431dbb68d9a90ad2553668721f325f5
       # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
       # the cluster will set imagePullPolicy to IfNotPresent
       computeResources:
@@ -412,7 +412,7 @@ spec:
         TEST_OUTPUT=$(make_result_json -r "SUCCESS" -t "$note")
         echo "${TEST_OUTPUT}" | tee $(results.TEST_OUTPUT.path)
     - name: get-rhsas
-      image: quay.io/konflux-ci/konflux-test:v1.5.10@sha256:2f9960d60c0e4aa0c2fba42b147736fab5bd11644577cff60ec4255a392be252
+      image: quay.io/konflux-ci/konflux-test:v1.5.12@sha256:18652fc45eb5f3f474673bc0b9bcea1d3431dbb68d9a90ad2553668721f325f5
       workingDir: /tekton/home
       script: |
         #!/usr/bin/env bash
