@@ -13,6 +13,7 @@ important vulnerabilities.
 | image-digest | Image digest to scan.                                           | None |
 | image-url    | Image URL.                                                      | None |
 | rox_central_endpoint | The address:port tuple for RHACS Stackrox Central | https://acs-d4dgfbkto15c73biblcg.acs.rhcloud.com |
+| client-timeout | How long roxctl waits for each RHACS scan request before timing out. Use a Go duration, such as `10m` or `30m`. Set this to a higher value for larger images. Some large images may need up to 30m. (Roxctl retries failed requests up to three times.) | 10m |
 
 ## Results:
 
