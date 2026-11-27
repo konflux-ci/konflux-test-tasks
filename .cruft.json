@@ -1,6 +1,10 @@
 {
   "template": "https://github.com/konflux-ci/task-repo-shared-ci",
   "commit": "989082edd442d1e722c56b7aff91bd81064a2d14",
+  "skip": [
+    "hack/generate-readme.sh",
+    ".github/workflows/check-task-readmes.yaml"
+  ],
   "checkout": null,
   "context": {
     "cookiecutter": {
